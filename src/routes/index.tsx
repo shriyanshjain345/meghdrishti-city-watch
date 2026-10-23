@@ -106,7 +106,11 @@ function Dashboard() {
   const [city, setCity] = useState<City>("Mumbai");
   const [rain, setRain] = useState<number>(CITIES.Mumbai.base);
   const [now, setNow] = useState<Date | null>(null);
-  const [sel, setSel] = useState(zones[3]!);
+  const firstZone = (c: City): PointInfo => {
+    const z = CITY_MAP[c]!.zones[0]!;
+    return { name: z.name, level: z.level, water: z.water, detail: z.detail, lat: z.lat, lng: z.lng };
+  };
+  const [sel, setSel] = useState<PointInfo>(() => firstZone("Mumbai"));
 
   useEffect(() => {
     const tick = () => setNow(new Date());
@@ -125,6 +129,7 @@ function Dashboard() {
   const pickCity = (c: City) => {
     setCity(c);
     setRain(CITIES[c].base);
+    setSel(firstZone(c));
   };
 
   const clock = now ? timeFmt.format(now) : "--:--";
@@ -186,27 +191,27 @@ function Dashboard() {
         <section className="grid gap-6 lg:grid-cols-5">
           <div className="glass rounded-xl p-5 lg:col-span-3">
             <h2 className="mb-1 text-lg font-bold">City Flood Map — {city}</h2>
-            <p className="mb-4 text-sm text-muted-foreground">Tap a zone for details</p>
-            <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-secondary">
-              {zones.map((z) => (
-                <button
-                  key={z.id}
-                  onClick={() => setSel(z)}
-                  className={`absolute flex flex-col items-start justify-end rounded-lg border-2 p-2 text-left transition hover:scale-[1.02] ${levelCls[z.level]} ${sel.id === z.id ? "ring-2 ring-foreground" : ""}`}
-                  style={{ left: `${z.x}%`, top: `${z.y}%`, width: `${z.w}%`, height: `${z.h}%` }}
-                >
-                  {z.level === "critical" && <span className="absolute right-2 top-2 h-3 w-3 rounded-full bg-critical animate-ping" />}
-                  <span className="text-xs font-bold text-foreground md:text-sm">{z.name}</span>
-                  <span className="text-[10px] md:text-xs">{levelText[z.level]}</span>
-                </button>
+            <p className="mb-2 text-sm text-muted-foreground">Click anywhere on the map for water status at that spot</p>
+            <div className="mb-3 flex gap-4 text-xs">
+              {(["safe", "warn", "critical"] as Level[]).map((l) => (
+                <span key={l} className="flex items-center gap-1.5">
+                  <span className={`h-3 w-3 rounded-full ${l === "safe" ? "bg-safe" : l === "warn" ? "bg-warn" : "bg-critical"}`} />
+                  {levelText[l]}
+                </span>
               ))}
             </div>
+            <ClientOnly fallback={<div className="aspect-[4/3] w-full rounded-lg bg-secondary" />}>
+              <Suspense fallback={<div className="aspect-[4/3] w-full rounded-lg bg-secondary" />}>
+                <FloodMap center={CITY_MAP[city]!.center} zones={CITY_MAP[city]!.zones} onPick={setSel} />
+              </Suspense>
+            </ClientOnly>
             <div className={`mt-4 rounded-lg border p-4 ${levelCls[sel.level]}`}>
               <div className="flex justify-between">
                 <b className="text-foreground">{sel.name}</b>
                 <span>{levelText[sel.level]}</span>
               </div>
               <p className="mt-1 text-sm text-foreground/80">Water level: {sel.water} • {sel.detail}</p>
+              {sel.lat !== 0 && <p className="mt-1 text-xs text-muted-foreground tabular-nums">{sel.lat.toFixed(4)}, {sel.lng.toFixed(4)}</p>}
             </div>
           </div>
 
