@@ -37,7 +37,8 @@ export default function HistoryMap({ events, selectedId, onSelect }: { events: F
     const g = window.google;
     overlays.current.forEach((o) => o.setMap(null));
     overlays.current = [];
-    class Pulse extends g.maps.OverlayView {
+    const Base: new () => any = g.maps.OverlayView;
+    class Pulse extends Base {
       pos: { lat: number; lng: number };
       node: HTMLDivElement;
       constructor(pos: { lat: number; lng: number }, node: HTMLDivElement) {
@@ -63,7 +64,7 @@ export default function HistoryMap({ events, selectedId, onSelect }: { events: F
         node.title = `${p.name} — ${e.title}`;
         node.innerHTML = `<span class="ping-ring absolute inset-0 rounded-full ${on ? "bg-critical/70" : "bg-warn/50"}"></span><span class="relative block h-full w-full rounded-full border-2 border-background ${on ? "bg-critical" : "bg-warn"}"></span>`;
         node.addEventListener("click", () => pick.current(e.id));
-        const o = new Pulse({ lat: p.lat, lng: p.lng }, node);
+        const o: any = new Pulse({ lat: p.lat, lng: p.lng }, node);
         o.setMap(map.current);
         overlays.current.push(o);
       }

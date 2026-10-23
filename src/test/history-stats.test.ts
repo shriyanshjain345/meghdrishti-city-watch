@@ -10,9 +10,9 @@ describe("IMD rain categories", () => {
 });
 
 describe("hindcast rules", () => {
-  const days = expand("2021-07-13", [10, 20, 30, 60, 5]);
+  const days = expand("2021-07-13", [40, 40, 40, 60, 5]);
   const index = new Map(days.map((d, i) => [d.date, i]));
-  it("rule adds half of the previous 3 days", () => expect(ruleScore(days, 3)).toBe(60 + 0.5 * (10 + 20 + 30)));
+  it("rule adds half of the previous 3 days", () => expect(ruleScore(days, 3)).toBe(60 + 0.5 * (40 + 40 + 40)));
   it("baseline misses 60 mm but the rule flags it after wet days", () => {
     const c = checkWindow(days, index, "2021-07-16", "2021-07-16");
     expect(c.baselineHit).toBe(false);
