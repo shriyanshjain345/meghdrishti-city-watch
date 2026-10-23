@@ -30,19 +30,19 @@
 
 :root {
   --radius: 0.875rem;
-  --background: oklch(0.16 0.025 240);
+  --background: oklch(0.17 0.04 255);
   --foreground: oklch(0.95 0.01 220);
-  --card: oklch(0.21 0.03 238);
+  --card: oklch(0.22 0.045 252);
   --card-foreground: oklch(0.95 0.01 220);
-  --primary: oklch(0.78 0.14 215);
-  --primary-foreground: oklch(0.16 0.025 240);
-  --secondary: oklch(0.27 0.035 238);
-  --muted: oklch(0.25 0.03 238);
+  --primary: oklch(0.76 0.13 185);
+  --primary-foreground: oklch(0.17 0.04 255);
+  --secondary: oklch(0.27 0.05 250);
+  --muted: oklch(0.26 0.045 250);
   --muted-foreground: oklch(0.68 0.03 230);
-  --accent: oklch(0.3 0.05 230);
+  --accent: oklch(0.32 0.07 195);
   --destructive: oklch(0.65 0.22 25);
-  --border: oklch(0.32 0.035 238);
-  --safe: oklch(0.75 0.16 155);
+  --border: oklch(0.34 0.05 230);
+  --safe: oklch(0.7 0.15 245);
   --warn: oklch(0.8 0.16 75);
   --critical: oklch(0.65 0.22 25);
 }
@@ -58,3 +58,14 @@
   border: 1px solid var(--border);
   backdrop-filter: blur(10px);
 }
+
+@keyframes fx-rain { from { transform: translateY(-20%); } to { transform: translateY(120%); } }
+@keyframes fx-drift { from { transform: translateX(-30%); } to { transform: translateX(130%); } }
+@keyframes fx-glow { 0%,100% { opacity: .55; transform: scale(1); } 50% { opacity: .9; transform: scale(1.08); } }
+@keyframes fx-flash { 0%,92%,100% { opacity: 0; } 93%,95% { opacity: .35; } }
+@keyframes fx-kenburns { 0% { transform: scale(1) translate(0,0); } 100% { transform: scale(1.15) translate(-3%,-2%); } }
+@utility fx-drop { animation: fx-rain linear infinite; }
+@utility fx-cloud { animation: fx-drift linear infinite; }
+@utility fx-sun { animation: fx-glow 4s ease-in-out infinite; }
+@utility fx-flash { animation: fx-flash 6s linear infinite; }
+@utility live-img { animation: fx-kenburns 14s ease-in-out infinite alternate; }
