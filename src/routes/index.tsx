@@ -1,5 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { createFileRoute, ClientOnly } from "@tanstack/react-router";
+import { lazy, Suspense, useEffect, useState } from "react";
+import type { Level, Zone, PointInfo } from "@/components/FloodMap";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -15,7 +16,8 @@ export const Route = createFileRoute("/")({
   component: Dashboard,
 });
 
-type Level = "safe" | "warn" | "critical";
+const FloodMap = lazy(() => import("@/components/FloodMap"));
+
 const levelText: Record<Level, string> = { safe: "Normal", warn: "Waterlogging", critical: "Deep Water" };
 const levelCls: Record<Level, string> = {
   safe: "bg-safe/20 border-safe text-safe",
@@ -23,13 +25,50 @@ const levelCls: Record<Level, string> = {
   critical: "bg-critical/25 border-critical text-critical",
 };
 
-const zones: { id: string; name: string; level: Level; x: number; y: number; w: number; h: number; water: string; detail: string }[] = [
-  { id: "n", name: "North District", level: "safe", x: 5, y: 5, w: 55, h: 28, water: "2 cm", detail: "Drains flowing normally." },
-  { id: "e", name: "Eastern Suburbs", level: "safe", x: 63, y: 5, w: 32, h: 40, water: "5 cm", detail: "Minor pooling on arterial roads." },
-  { id: "c", name: "Central Zone", level: "warn", x: 5, y: 36, w: 55, h: 30, water: "28 cm", detail: "Underpasses filling; outflows running slowly." },
-  { id: "l", name: "Low-lying Area", level: "critical", x: 5, y: 69, w: 45, h: 26, water: "72 cm", detail: "Relief camps open; pumps running at full capacity." },
-  { id: "c2", name: "Coastal Belt", level: "warn", x: 62, y: 48, w: 33, h: 47, water: "34 cm", detail: "High tide at 16:40 may block outfalls." },
-];
+const CITY_MAP: Record<string, { center: { lat: number; lng: number }; zones: Zone[] }> = {
+  Mumbai: {
+    center: { lat: 19.07, lng: 72.88 },
+    zones: [
+      { name: "Andheri Subway", level: "critical", lat: 19.1197, lng: 72.8464, r: 1500, water: "72 cm", detail: "Subway closed; pumps running at full capacity." },
+      { name: "Sion – King's Circle", level: "critical", lat: 19.03, lng: 72.86, r: 1600, water: "65 cm", detail: "Relief camps open nearby." },
+      { name: "Dadar – Parel", level: "warn", lat: 19.012, lng: 72.84, r: 1800, water: "28 cm", detail: "Outflows running slowly." },
+      { name: "Kurla", level: "warn", lat: 19.07, lng: 72.88, r: 1700, water: "31 cm", detail: "Pooling near station roads." },
+      { name: "Borivali", level: "safe", lat: 19.23, lng: 72.86, r: 2500, water: "3 cm", detail: "Drains flowing normally." },
+      { name: "Powai", level: "safe", lat: 19.118, lng: 72.906, r: 2000, water: "5 cm", detail: "Minor pooling only." },
+    ],
+  },
+  Jaipur: {
+    center: { lat: 26.9124, lng: 75.7873 },
+    zones: [
+      { name: "Walled City", level: "critical", lat: 26.9239, lng: 75.8267, r: 1500, water: "55 cm", detail: "Narrow lanes holding water." },
+      { name: "Sanganer", level: "warn", lat: 26.82, lng: 75.79, r: 2200, water: "26 cm", detail: "Low-lying colonies filling." },
+      { name: "Mansarovar", level: "warn", lat: 26.86, lng: 75.76, r: 2000, water: "22 cm", detail: "Underpass slow to drain." },
+      { name: "Malviya Nagar", level: "safe", lat: 26.855, lng: 75.815, r: 1800, water: "4 cm", detail: "Drains flowing normally." },
+      { name: "Vaishali Nagar", level: "safe", lat: 26.91, lng: 75.74, r: 2000, water: "2 cm", detail: "Roads clear." },
+    ],
+  },
+  Delhi: {
+    center: { lat: 28.6139, lng: 77.209 },
+    zones: [
+      { name: "Minto Bridge", level: "critical", lat: 28.6328, lng: 77.2265, r: 1000, water: "80 cm", detail: "Underpass closed to traffic." },
+      { name: "Yamuna Bank", level: "critical", lat: 28.62, lng: 77.28, r: 2200, water: "60 cm", detail: "River level rising; camps open." },
+      { name: "ITO", level: "warn", lat: 28.628, lng: 77.241, r: 1300, water: "30 cm", detail: "Slow traffic, pooling on main road." },
+      { name: "Rohini", level: "safe", lat: 28.74, lng: 77.11, r: 3000, water: "3 cm", detail: "Drains flowing normally." },
+      { name: "Dwarka", level: "safe", lat: 28.59, lng: 77.05, r: 3000, water: "4 cm", detail: "Roads clear." },
+      { name: "Lajpat Nagar", level: "warn", lat: 28.567, lng: 77.243, r: 1500, water: "24 cm", detail: "Market lanes holding water." },
+    ],
+  },
+  Bengaluru: {
+    center: { lat: 12.9716, lng: 77.5946 },
+    zones: [
+      { name: "Silk Board", level: "critical", lat: 12.9177, lng: 77.6238, r: 1300, water: "50 cm", detail: "Junction flooded; diversions active." },
+      { name: "Bellandur", level: "warn", lat: 12.926, lng: 77.676, r: 2000, water: "30 cm", detail: "Lake outflow high." },
+      { name: "Koramangala", level: "warn", lat: 12.935, lng: 77.624, r: 1400, water: "20 cm", detail: "Some streets pooling." },
+      { name: "Malleshwaram", level: "safe", lat: 13.003, lng: 77.57, r: 1800, water: "2 cm", detail: "Drains flowing normally." },
+      { name: "Whitefield", level: "safe", lat: 12.97, lng: 77.75, r: 2500, water: "5 cm", detail: "Minor pooling only." },
+    ],
+  },
+};
 
 const FORECAST = [
   { mm: 42, risk: 58 },
@@ -67,7 +106,11 @@ function Dashboard() {
   const [city, setCity] = useState<City>("Mumbai");
   const [rain, setRain] = useState<number>(CITIES.Mumbai.base);
   const [now, setNow] = useState<Date | null>(null);
-  const [sel, setSel] = useState(zones[3]!);
+  const firstZone = (c: City): PointInfo => {
+    const z = CITY_MAP[c]!.zones[0]!;
+    return { name: z.name, level: z.level, water: z.water, detail: z.detail, lat: z.lat, lng: z.lng };
+  };
+  const [sel, setSel] = useState<PointInfo>(() => firstZone("Mumbai"));
 
   useEffect(() => {
     const tick = () => setNow(new Date());
@@ -86,6 +129,7 @@ function Dashboard() {
   const pickCity = (c: City) => {
     setCity(c);
     setRain(CITIES[c].base);
+    setSel(firstZone(c));
   };
 
   const clock = now ? timeFmt.format(now) : "--:--";
@@ -147,27 +191,27 @@ function Dashboard() {
         <section className="grid gap-6 lg:grid-cols-5">
           <div className="glass rounded-xl p-5 lg:col-span-3">
             <h2 className="mb-1 text-lg font-bold">City Flood Map — {city}</h2>
-            <p className="mb-4 text-sm text-muted-foreground">Tap a zone for details</p>
-            <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-secondary">
-              {zones.map((z) => (
-                <button
-                  key={z.id}
-                  onClick={() => setSel(z)}
-                  className={`absolute flex flex-col items-start justify-end rounded-lg border-2 p-2 text-left transition hover:scale-[1.02] ${levelCls[z.level]} ${sel.id === z.id ? "ring-2 ring-foreground" : ""}`}
-                  style={{ left: `${z.x}%`, top: `${z.y}%`, width: `${z.w}%`, height: `${z.h}%` }}
-                >
-                  {z.level === "critical" && <span className="absolute right-2 top-2 h-3 w-3 rounded-full bg-critical animate-ping" />}
-                  <span className="text-xs font-bold text-foreground md:text-sm">{z.name}</span>
-                  <span className="text-[10px] md:text-xs">{levelText[z.level]}</span>
-                </button>
+            <p className="mb-2 text-sm text-muted-foreground">Click anywhere on the map for water status at that spot</p>
+            <div className="mb-3 flex gap-4 text-xs">
+              {(["safe", "warn", "critical"] as Level[]).map((l) => (
+                <span key={l} className="flex items-center gap-1.5">
+                  <span className={`h-3 w-3 rounded-full ${l === "safe" ? "bg-safe" : l === "warn" ? "bg-warn" : "bg-critical"}`} />
+                  {levelText[l]}
+                </span>
               ))}
             </div>
+            <ClientOnly fallback={<div className="aspect-[4/3] w-full rounded-lg bg-secondary" />}>
+              <Suspense fallback={<div className="aspect-[4/3] w-full rounded-lg bg-secondary" />}>
+                <FloodMap center={CITY_MAP[city]!.center} zones={CITY_MAP[city]!.zones} onPick={setSel} />
+              </Suspense>
+            </ClientOnly>
             <div className={`mt-4 rounded-lg border p-4 ${levelCls[sel.level]}`}>
               <div className="flex justify-between">
                 <b className="text-foreground">{sel.name}</b>
                 <span>{levelText[sel.level]}</span>
               </div>
               <p className="mt-1 text-sm text-foreground/80">Water level: {sel.water} • {sel.detail}</p>
+              {sel.lat !== 0 && <p className="mt-1 text-xs text-muted-foreground tabular-nums">{sel.lat.toFixed(4)}, {sel.lng.toFixed(4)}</p>}
             </div>
           </div>
 
