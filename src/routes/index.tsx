@@ -1,20 +1,18 @@
 import { createFileRoute, ClientOnly } from "@tanstack/react-router";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import { Search, MapPin } from "lucide-react";
 import type { Level, Zone, PointInfo } from "@/components/FloodMap";
 import { getWeather, type Weather } from "@/lib/weather.functions";
 import ActionGuide from "@/components/ActionGuide";
 import WeatherFx from "@/components/WeatherFx";
 import TrendChart from "@/components/TrendChart";
-import HistorySection from "@/components/history/HistorySection";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "MeghDrishti — Rainfall & Urban Flood Risk Dashboard" },
-      { name: "description", content: "Live rainfall, 24-hour flood-risk forecasts for 11 Indian cities and a sourced history of Mumbai floods since 2000." },
-      { property: "og:title", content: "MeghDrishti — Urban Flood Intelligence for India" },
-      { property: "og:description", content: "Live rainfall and flood-risk forecasts plus historical Mumbai rainfall and documented flood events." },
+      { name: "description", content: "Live simulated rainfall, drainage and AI flood-risk tracking for Indian cities." },
+      { property: "og:title", content: "MeghDrishti" },
+      { property: "og:description", content: "Track heavy rainfall and urban flood risks with AI forecasts." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -74,76 +72,6 @@ const CITY_MAP: Record<string, { center: { lat: number; lng: number }; zones: Zo
       { name: "Whitefield", level: "safe", lat: 12.97, lng: 77.75, r: 2500, water: "5 cm", detail: "Minor pooling only." },
     ],
   },
-  Kolkata: {
-    center: { lat: 22.5726, lng: 88.3639 },
-    zones: [
-      { name: "College Street – Thanthania", level: "critical", lat: 22.577, lng: 88.363, r: 1200, water: "60 cm", detail: "Old lanes holding water." },
-      { name: "Park Circus", level: "warn", lat: 22.539, lng: 88.37, r: 1500, water: "25 cm", detail: "Underpass slow to drain." },
-      { name: "Behala", level: "warn", lat: 22.498, lng: 88.311, r: 2000, water: "28 cm", detail: "Low-lying roads pooling." },
-      { name: "Ballygunge", level: "safe", lat: 22.528, lng: 88.365, r: 1500, water: "3 cm", detail: "Drains flowing normally." },
-      { name: "Shyambazar", level: "safe", lat: 22.601, lng: 88.372, r: 1500, water: "4 cm", detail: "Roads clear." },
-    ],
-  },
-  Chennai: {
-    center: { lat: 13.0827, lng: 80.2707 },
-    zones: [
-      { name: "Velachery", level: "critical", lat: 12.979, lng: 80.221, r: 1800, water: "65 cm", detail: "Low-lying colonies holding water." },
-      { name: "T. Nagar", level: "warn", lat: 13.0418, lng: 80.2341, r: 1400, water: "24 cm", detail: "Subway slow to drain." },
-      { name: "Kodambakkam", level: "warn", lat: 13.052, lng: 80.225, r: 1300, water: "20 cm", detail: "Some streets pooling." },
-      { name: "Anna Nagar", level: "safe", lat: 13.085, lng: 80.21, r: 2000, water: "3 cm", detail: "Drains flowing normally." },
-      { name: "Adyar", level: "safe", lat: 13.0012, lng: 80.2565, r: 1800, water: "5 cm", detail: "Minor pooling only." },
-    ],
-  },
-  Hyderabad: {
-    center: { lat: 17.385, lng: 78.4867 },
-    zones: [
-      { name: "Malakpet", level: "critical", lat: 17.374, lng: 78.505, r: 1400, water: "55 cm", detail: "Narrow lanes holding water." },
-      { name: "Tolichowki", level: "warn", lat: 17.399, lng: 78.418, r: 1500, water: "26 cm", detail: "Low roads pooling." },
-      { name: "Begumpet", level: "warn", lat: 17.444, lng: 78.467, r: 1300, water: "22 cm", detail: "Underpass slow to drain." },
-      { name: "Charminar", level: "safe", lat: 17.3616, lng: 78.4747, r: 1500, water: "4 cm", detail: "Roads clear." },
-      { name: "Secunderabad", level: "safe", lat: 17.4399, lng: 78.4983, r: 2000, water: "3 cm", detail: "Drains flowing normally." },
-    ],
-  },
-  Pune: {
-    center: { lat: 18.5204, lng: 73.8567 },
-    zones: [
-      { name: "Sinhagad Road", level: "critical", lat: 18.48, lng: 73.82, r: 1500, water: "50 cm", detail: "Nala overflow near homes." },
-      { name: "Shivajinagar", level: "warn", lat: 18.5308, lng: 73.8475, r: 1300, water: "22 cm", detail: "Underpass slow to drain." },
-      { name: "Hadapsar", level: "warn", lat: 18.5089, lng: 73.926, r: 1800, water: "25 cm", detail: "Some streets pooling." },
-      { name: "Kothrud", level: "safe", lat: 18.5074, lng: 73.8077, r: 1800, water: "3 cm", detail: "Drains flowing normally." },
-      { name: "Viman Nagar", level: "safe", lat: 18.5679, lng: 73.9143, r: 1500, water: "4 cm", detail: "Roads clear." },
-    ],
-  },
-  Lucknow: {
-    center: { lat: 26.8467, lng: 80.9462 },
-    zones: [
-      { name: "Aminabad", level: "critical", lat: 26.85, lng: 80.93, r: 1200, water: "45 cm", detail: "Market lanes holding water." },
-      { name: "Hazratganj", level: "warn", lat: 26.85, lng: 80.946, r: 1200, water: "20 cm", detail: "Slow traffic, pooling on main road." },
-      { name: "Alambagh", level: "warn", lat: 26.813, lng: 80.9, r: 1600, water: "24 cm", detail: "Underpass slow to drain." },
-      { name: "Gomti Nagar", level: "safe", lat: 26.85, lng: 81.0, r: 2200, water: "3 cm", detail: "Drains flowing normally." },
-      { name: "Aliganj", level: "safe", lat: 26.89, lng: 80.94, r: 1800, water: "4 cm", detail: "Roads clear." },
-    ],
-  },
-  Guwahati: {
-    center: { lat: 26.1445, lng: 91.7362 },
-    zones: [
-      { name: "Anil Nagar", level: "critical", lat: 26.172, lng: 91.768, r: 1100, water: "70 cm", detail: "Low-lying lanes holding water." },
-      { name: "Zoo Road", level: "warn", lat: 26.173, lng: 91.78, r: 1100, water: "28 cm", detail: "Slow to drain." },
-      { name: "Rukminigaon", level: "warn", lat: 26.14, lng: 91.8, r: 1300, water: "22 cm", detail: "Some streets pooling." },
-      { name: "Paltan Bazaar", level: "safe", lat: 26.18, lng: 91.752, r: 1000, water: "4 cm", detail: "Roads clear." },
-      { name: "Maligaon", level: "safe", lat: 26.158, lng: 91.696, r: 1400, water: "3 cm", detail: "Drains flowing normally." },
-    ],
-  },
-  Kochi: {
-    center: { lat: 9.9711, lng: 76.2846 },
-    zones: [
-      { name: "MG Road", level: "critical", lat: 9.97, lng: 76.285, r: 1000, water: "45 cm", detail: "Roads holding water after canal overflow." },
-      { name: "Kaloor", level: "warn", lat: 9.994, lng: 76.292, r: 1100, water: "22 cm", detail: "Some streets pooling." },
-      { name: "Vyttila", level: "warn", lat: 9.967, lng: 76.318, r: 1200, water: "25 cm", detail: "Junction slow to drain." },
-      { name: "Fort Kochi", level: "safe", lat: 9.965, lng: 76.242, r: 1200, water: "3 cm", detail: "Roads clear." },
-      { name: "Palarivattom", level: "safe", lat: 10.005, lng: 76.305, r: 1200, water: "4 cm", detail: "Drains flowing normally." },
-    ],
-  },
 };
 
 const CITIES = {
@@ -151,13 +79,6 @@ const CITIES = {
   Jaipur: { temp: 29, cond: "Intense Rain Spells", base: 10 },
   Delhi: { temp: 24, cond: "Thunderstorm with Dust", base: 14 },
   Bengaluru: { temp: 22, cond: "Drizzle & Overcast", base: 8 },
-  Kolkata: { temp: 30, cond: "", base: 14 },
-  Chennai: { temp: 31, cond: "", base: 12 },
-  Hyderabad: { temp: 28, cond: "", base: 10 },
-  Pune: { temp: 26, cond: "", base: 9 },
-  Lucknow: { temp: 29, cond: "", base: 9 },
-  Guwahati: { temp: 28, cond: "", base: 13 },
-  Kochi: { temp: 28, cond: "", base: 12 },
 } as const;
 type City = keyof typeof CITIES;
 
@@ -336,7 +257,7 @@ function Dashboard() {
     <div className="min-h-screen">
       <div className="relative mx-auto max-w-7xl">
       {wx && <WeatherFx cond={wx.cond} mm={wx.mmNow} />}
-      <header className="relative z-30 mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-6">
+      <header className="relative mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-6">
         <div>
           <h1 className="text-2xl font-bold md:text-3xl">
             Megh<span className="text-primary">Drishti</span>
@@ -344,7 +265,15 @@ function Dashboard() {
           <p className="text-sm text-muted-foreground">Urban Flood Intelligence for India • Live weather</p>
         </div>
         <div className="glass flex items-center gap-4 rounded-xl px-4 py-3">
-          <CitySearch value={city} options={Object.keys(CITIES)} onPick={(c) => pickCity(c as City)} />
+          <select
+            value={city}
+            onChange={(e) => pickCity(e.target.value as City)}
+            className="rounded-md bg-secondary px-2 py-1 text-sm"
+          >
+            {Object.keys(CITIES).map((c) => (
+              <option key={c}>{c}</option>
+            ))}
+          </select>
           <div className="text-3xl font-bold font-display">{wx ? wx.temp : CITIES[city].temp}°C</div>
           <div className="text-sm">
             <div className="flex items-center gap-1">{wx && <img src={wx.icon} alt="" className="h-5 w-5" />}{wx ? wx.cond : "Loading…"}</div>
@@ -473,68 +402,11 @@ function Dashboard() {
           </div>
         </section>
 
-        <section id="guide" className="glass scroll-mt-6 rounded-xl p-5">
+        <section className="glass rounded-xl p-5">
           <h2 className="mb-4 text-lg font-bold">Emergency Preparedness & Action Guide</h2>
           <ActionGuide />
         </section>
-
-        <HistorySection />
       </main>
-    </div>
-  );
-}
-
-function CitySearch({ value, options, onPick }: { value: string; options: string[]; onPick: (c: string) => void }) {
-  const [q, setQ] = useState("");
-  const [open, setOpen] = useState(false);
-  const [hi, setHi] = useState(0);
-  const list = options.filter((c) => c.toLowerCase().includes(q.trim().toLowerCase()));
-  const choose = (c: string) => {
-    onPick(c);
-    setQ("");
-    setOpen(false);
-  };
-  return (
-    <div className="relative">
-      <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-primary" />
-      <input
-        value={q}
-        placeholder={value}
-        aria-label="Search city"
-        role="combobox"
-        aria-expanded={open}
-        onFocus={() => setOpen(true)}
-        onBlur={() => setTimeout(() => setOpen(false), 120)}
-        onChange={(e) => { setQ(e.target.value); setOpen(true); setHi(0); }}
-        onKeyDown={(e) => {
-          if (e.key === "ArrowDown") { e.preventDefault(); setHi((h) => Math.min(list.length - 1, h + 1)); }
-          else if (e.key === "ArrowUp") { e.preventDefault(); setHi((h) => Math.max(0, h - 1)); }
-          else if (e.key === "Enter" && list[hi]) choose(list[hi]!);
-          else if (e.key === "Escape") { setOpen(false); (e.target as HTMLInputElement).blur(); }
-        }}
-        className="w-40 rounded-lg border border-border bg-secondary py-1.5 pl-8 pr-2 text-sm placeholder:text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/40 sm:w-48"
-      />
-      {open && (
-        <ul role="listbox" className="absolute left-0 z-50 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-border bg-card py-1 shadow-xl">
-          {list.length ? (
-            list.map((c, i) => (
-              <li key={c} role="option" aria-selected={c === value}>
-                <button
-                  type="button"
-                  onMouseDown={(e) => { e.preventDefault(); choose(c); }}
-                  onMouseEnter={() => setHi(i)}
-                  className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm ${i === hi ? "bg-accent" : ""} ${c === value ? "text-primary" : ""}`}
-                >
-                  <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-                  {c}
-                </button>
-              </li>
-            ))
-          ) : (
-            <li className="px-3 py-2 text-sm text-muted-foreground">No city matches “{q}”</li>
-          )}
-        </ul>
-      )}
     </div>
   );
 }
