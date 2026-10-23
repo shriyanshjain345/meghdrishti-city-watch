@@ -2,6 +2,7 @@ import { createFileRoute, ClientOnly } from "@tanstack/react-router";
 import { lazy, Suspense, useEffect, useState } from "react";
 import type { Level, Zone, PointInfo } from "@/components/FloodMap";
 import { getWeather, type Weather } from "@/lib/weather.functions";
+import ActionGuide from "@/components/ActionGuide";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -297,23 +298,7 @@ function Dashboard() {
 
         <section className="glass rounded-xl p-5">
           <h2 className="mb-4 text-lg font-bold">Emergency Preparedness & Action Guide</h2>
-          <div className="grid gap-6 md:grid-cols-2">
-            {[
-              { title: "👨‍👩‍👧 For Citizens", tips: ["Keep an emergency kit: torch, power bank, medicines, documents in a waterproof bag.", "Never walk or drive through flooded roads — 15 cm of moving water can knock you down.", "Switch off main electricity if water enters your home.", "Move to higher floors; avoid basements and underpasses.", "Save helplines: 112 (Emergency), 1916 (BMC), 1078 (NDMA)."] },
-              { title: "🏛 For Local Authorities", tips: ["Pre-deploy dewatering pumps at known flood hotspots.", "Clear stormwater drains and nullahs before peak rainfall.", "Send SMS/loudspeaker messages to low-lying wards early.", "Activate relief camps with food, water and medical teams.", "Coordinate with NDRF, traffic police and railways for closures."] },
-            ].map((g) => (
-              <div key={g.title}>
-                <h3 className="mb-3 font-semibold text-primary">{g.title}</h3>
-                <ul className="space-y-2">
-                  {g.tips.map((t, i) => (
-                    <li key={i} className="flex gap-3 rounded-lg bg-secondary p-3 text-sm">
-                      <span className="font-display font-bold text-primary">{i + 1}</span>{t}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
+          <ActionGuide />
         </section>
       </main>
     </div>
