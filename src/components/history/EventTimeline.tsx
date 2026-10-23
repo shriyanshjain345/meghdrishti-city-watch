@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { EVENT_TYPE_LABEL, type EventType, type FloodEvent } from "@/lib/flood-events";
 import type { EventCheck } from "@/lib/history-stats";
@@ -5,7 +6,7 @@ import { fmtDate, fmtMm } from "./format";
 
 export type Decade = "all" | "2000s" | "2010s" | "2020s";
 
-function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
+function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: ReactNode }) {
   return (
     <button
       type="button"
