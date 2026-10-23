@@ -4,7 +4,7 @@ export type Level = "safe" | "warn" | "critical";
 export type Zone = { name: string; level: Level; lat: number; lng: number; r: number; water: string; detail: string };
 export type PointInfo = { name: string; level: Level; water: string; detail: string; lat: number; lng: number };
 
-const COLORS: Record<Level, string> = { safe: "#22c55e", warn: "#eab308", critical: "#ef4444" };
+const COLORS: Record<Level, string> = { safe: "#3b82f6", warn: "#f59e0b", critical: "#ef4444" };
 
 declare global {
   interface Window {
