@@ -411,7 +411,7 @@ function Dashboard() {
   );
 }
 
-function Carousel({ children, label }: { children: React.ReactNode; label: string }) {
+function Carousel({ children, label }: { children: import("react").ReactNode; label: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const go = (d: number) => ref.current?.scrollBy({ left: d * ref.current.clientWidth, behavior: "smooth" });
   const btn = "absolute top-1/2 z-20 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full border border-border bg-background/80 text-primary shadow transition-transform hover:scale-110";
