@@ -50,7 +50,7 @@ function Dashboard() {
   const [city, setCity] = useState<keyof typeof cities>("Mumbai");
   const [rain, setRain] = useState(48.2);
   const [time, setTime] = useState("");
-  const [sel, setSel] = useState(zones[3]);
+  const [sel, setSel] = useState(zones[3]!);
 
   useEffect(() => {
     const tick = () => {
