@@ -51,7 +51,7 @@ export default function ActionGuide() {
   const [stageId, setStageId] = useState("before");
   const [itemIdx, setItemIdx] = useState(0);
   const stage = STAGES.find((s) => s.id === stageId)!;
-  const item = stage.items[itemIdx];
+  const item = stage.items[itemIdx] ?? stage.items[0]!;
 
   return (
     <div className="space-y-5">
