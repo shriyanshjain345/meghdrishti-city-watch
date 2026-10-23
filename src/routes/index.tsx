@@ -178,7 +178,7 @@ function Dashboard() {
           <h1 className="text-2xl font-bold md:text-3xl">
             Megh<span className="text-primary">Drishti</span>
           </h1>
-          <p className="text-sm text-muted-foreground">Urban Flood Intelligence for India • Live simulation</p>
+          <p className="text-sm text-muted-foreground">Urban Flood Intelligence for India • Live weather</p>
         </div>
         <div className="glass flex items-center gap-4 rounded-xl px-4 py-3">
           <select
