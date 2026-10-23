@@ -70,20 +70,11 @@ const CITY_MAP: Record<string, { center: { lat: number; lng: number }; zones: Zo
   },
 };
 
-const FORECAST = [
-  { mm: 42, risk: 58 },
-  { mm: 61, risk: 70 },
-  { mm: 78, risk: 84 },
-  { mm: 66, risk: 79 },
-  { mm: 39, risk: 62 },
-  { mm: 22, risk: 45 },
-];
-
 const CITIES = {
-  Mumbai: { temp: 26, cond: "Heavy Thunderstorm", base: 48 },
-  Jaipur: { temp: 29, cond: "Intense Rain Spells", base: 34 },
-  Delhi: { temp: 24, cond: "Thunderstorm with Dust", base: 41 },
-  Bengaluru: { temp: 22, cond: "Drizzle & Overcast", base: 19 },
+  Mumbai: { temp: 26, cond: "Heavy Thunderstorm", base: 18 },
+  Jaipur: { temp: 29, cond: "Intense Rain Spells", base: 10 },
+  Delhi: { temp: 24, cond: "Thunderstorm with Dust", base: 14 },
+  Bengaluru: { temp: 22, cond: "Drizzle & Overcast", base: 8 },
 } as const;
 type City = keyof typeof CITIES;
 
@@ -94,18 +85,27 @@ const timeFmt = new Intl.DateTimeFormat("en-IN", {
   timeZone: "Asia/Kolkata",
 });
 
-function slotTimes(now: Date) {
-  return FORECAST.map((f, i) => ({ ...f, t: timeFmt.format(new Date(now.getTime() + (i + 1) * 3_600_000)) }));
-}
+type Slot = { t: string; icon: string; cond: string; rainChance: number; mm: number; temp: number; risk: number };
 
-function riskColor(r: number) {
-  return r >= 75 ? "bg-critical" : r >= 55 ? "bg-warn" : "bg-safe";
+function floodRisk(rainChance: number, mm: number, base: number) {
+  return Math.round(Math.min(98, Math.max(3, base + rainChance * 0.45 + mm * 9)));
+}
+function riskTone(r: number): Level {
+  return r >= 70 ? "critical" : r >= 40 ? "warn" : "safe";
+}
+const toneText: Record<Level, string> = { safe: "text-safe", warn: "text-warn", critical: "text-critical" };
+const toneBg: Record<Level, string> = { safe: "bg-safe", warn: "bg-warn", critical: "bg-critical" };
+
+function rainEmoji(chance: number) {
+  return chance >= 70 ? "⛈️" : chance >= 40 ? "🌧️" : chance >= 15 ? "🌦️" : "☁️";
 }
 
 function Dashboard() {
   const [city, setCity] = useState<City>("Mumbai");
-  const [rain, setRain] = useState<number>(CITIES.Mumbai.base);
   const [now, setNow] = useState<Date | null>(null);
+  const [wx, setWx] = useState<Weather | null>(null);
+  const [wxErr, setWxErr] = useState(false);
+  const [slotIdx, setSlotIdx] = useState(0);
   const firstZone = (c: City): PointInfo => {
     const z = CITY_MAP[c]!.zones[0]!;
     return { name: z.name, level: z.level, water: z.water, detail: z.detail, lat: z.lat, lng: z.lng };
@@ -115,34 +115,60 @@ function Dashboard() {
   useEffect(() => {
     const tick = () => setNow(new Date());
     tick();
-    const id = setInterval(tick, 2000);
+    const id = setInterval(tick, 30_000);
     return () => clearInterval(id);
   }, []);
 
   useEffect(() => {
-    const id = setInterval(() => {
-      setRain((r) => Math.max(8, Math.min(90, +(r + (Math.random() - 0.45) * 4).toFixed(1))));
-    }, 2000);
-    return () => clearInterval(id);
-  }, []);
+    let live = true;
+    setWx(null);
+    setWxErr(false);
+    getWeather({ data: { city } })
+      .then((w) => live && setWx(w))
+      .catch(() => live && setWxErr(true));
+    return () => { live = false; };
+  }, [city]);
 
   const pickCity = (c: City) => {
     setCity(c);
-    setRain(CITIES[c].base);
+    setSlotIdx(0);
     setSel(firstZone(c));
   };
 
   const clock = now ? timeFmt.format(now) : "--:--";
-  const slots = now ? slotTimes(now) : FORECAST.map((f) => ({ ...f, t: "--:--" }));
-  const peak = slots.reduce((a, b) => (b.risk > a.risk ? b : a));
+  const base = CITIES[city].base;
+  const slots: Slot[] = (wx?.hours ?? []).map((h) => ({
+    ...h,
+    t: h.time ? timeFmt.format(new Date(h.time)) : "--:--",
+    risk: floodRisk(h.rainChance, h.mm, base),
+  }));
+  const slot = slots[slotIdx];
+  const peak = slots.length ? slots.reduce((a, b) => (b.risk > a.risk ? b : a)) : null;
+  const zones = CITY_MAP[city]!.zones;
+  const affected = slot
+    ? slot.risk >= 70
+      ? zones.filter((z) => z.level !== "safe")
+      : slot.risk >= 40
+        ? zones.filter((z) => z.level === "critical")
+        : []
+    : [];
+  const outlook = (s: Slot) =>
+    s.risk >= 70
+      ? "Narrow lanes and underpasses likely to hold water; expect slow traffic around low-lying spots."
+      : s.risk >= 40
+        ? "Some pooling possible at underpasses that drain slowly."
+        : "Roads expected to stay clear.";
 
-  const riskIdx = rain > 55 ? "High" : "Moderate";
+  const rain = wx ? +wx.mmNow.toFixed(1) : 0;
+  const soil = wx ? Math.round(Math.min(99, wx.humidity * 0.9 + rain * 2)) : 0;
+  const drain = Math.max(5, Math.round(100 - rain * 6 - base));
+  const maxRisk = peak?.risk ?? 0;
   const metrics = [
-    { label: "Current Rainfall", value: `${rain}`, unit: "mm/hr", pct: rain, tone: rain > 55 ? "critical" : "warn" },
-    { label: "Soil Saturation", value: "87", unit: "%", pct: 87, tone: "warn" },
-    { label: "Drainage Capacity", value: "34", unit: "% left", pct: 34, tone: "critical" },
-    { label: "AI Risk Index", value: riskIdx, unit: rain > 55 ? "8.1/10" : "6.2/10", pct: rain > 55 ? 81 : 62, tone: rain > 55 ? "critical" : "warn" },
-  ] as const;
+    { label: "Current Rainfall", value: wx ? `${rain}` : "…", unit: "mm/hr", pct: Math.min(100, rain * 5), tone: riskTone(rain * 8) },
+    { label: "Soil Saturation", value: wx ? `${soil}` : "…", unit: "%", pct: soil, tone: riskTone(soil - 20) },
+    { label: "Drainage Capacity", value: wx ? `${drain}` : "…", unit: "% left", pct: drain, tone: riskTone(100 - drain) },
+    { label: "AI Risk Index", value: wx ? (maxRisk >= 70 ? "High" : maxRisk >= 40 ? "Moderate" : "Low") : "…", unit: `${(maxRisk / 10).toFixed(1)}/10`, pct: maxRisk, tone: riskTone(maxRisk) },
+  ];
 
   return (
     <div className="min-h-screen">
