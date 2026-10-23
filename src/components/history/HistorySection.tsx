@@ -294,7 +294,7 @@ export default function HistorySection() {
             </li>
             <li>
               <span className="font-semibold">Event sources</span>
-              <span className="text-muted-foreground"> — NIDM, The Hindu, Indian Express, Times of India, BusinessLine, Frontline, mid-day, Reuters-sourced reports, Wikipedia; links on each event</span>
+              <span className="text-muted-foreground"> — NIDM, The Hindu, Indian Express, Times of India, BusinessLine, Frontline, mid-day, Wikipedia; links on each event</span>
             </li>
             <li>
               <span className="font-semibold">Google Weather</span>
