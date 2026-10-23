@@ -1,6 +1,7 @@
 import { createFileRoute, ClientOnly } from "@tanstack/react-router";
 import { lazy, Suspense, useEffect, useState } from "react";
 import type { Level, Zone, PointInfo } from "@/components/FloodMap";
+import { getWeather, type Weather } from "@/lib/weather.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -189,9 +190,9 @@ function Dashboard() {
               <option key={c}>{c}</option>
             ))}
           </select>
-          <div className="text-3xl font-bold font-display">{CITIES[city].temp}°C</div>
+          <div className="text-3xl font-bold font-display">{wx ? wx.temp : CITIES[city].temp}°C</div>
           <div className="text-sm">
-            <div>🌧 {CITIES[city].cond}</div>
+            <div className="flex items-center gap-1">{wx && <img src={wx.icon} alt="" className="h-5 w-5" />}{wx ? wx.cond : "Loading…"}</div>
             <div className="flex items-center gap-1.5 text-muted-foreground">
               <span className="h-2 w-2 rounded-full bg-safe animate-pulse" />LIVE {clock} IST
             </div>
@@ -204,11 +205,11 @@ function Dashboard() {
           {metrics.map((m) => (
             <div key={m.label} className="glass rounded-xl p-4">
               <p className="text-xs uppercase tracking-wider text-muted-foreground">{m.label}</p>
-              <p className={`mt-2 font-display text-2xl font-bold md:text-3xl ${m.tone === "critical" ? "text-critical" : "text-warn"}`}>
+              <p className={`mt-2 font-display text-2xl font-bold md:text-3xl ${toneText[m.tone]}`}>
                 {m.value} <span className="text-sm font-normal text-muted-foreground">{m.unit}</span>
               </p>
               <div className="mt-3 h-1.5 rounded-full bg-muted">
-                <div className={`h-full rounded-full transition-all duration-700 ${m.tone === "critical" ? "bg-critical" : "bg-warn"}`} style={{ width: `${m.pct}%` }} />
+                <div className={`h-full rounded-full transition-all duration-700 ${toneBg[m.tone]}`} style={{ width: `${m.pct}%` }} />
               </div>
             </div>
           ))}
