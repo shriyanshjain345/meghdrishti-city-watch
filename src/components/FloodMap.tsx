@@ -37,12 +37,28 @@ function dist(aLat: number, aLng: number, bLat: number, bLng: number) {
   return 2 * R * Math.asin(Math.sqrt(x));
 }
 
+const STEP = 0.012, SPAN_LAT = 0.15, SPAN_LNG = 0.17;
+
+export function levelAt(zones: Zone[], lat: number, lng: number): { level: Level; near?: Zone } {
+  let best: { level: Level; near?: Zone } = { level: "safe" };
+  let nearest: Zone | undefined, nd = Infinity;
+  for (const z of zones) {
+    const d = dist(z.lat, z.lng, lat, lng);
+    if (d < nd) { nd = d; nearest = z; }
+    if (z.level === "critical" && d <= z.r * 1.4) return { level: "critical", near: z };
+    if (z.level !== "safe" && d <= z.r * 2.4) best = { level: "warn", near: z };
+  }
+  return best.near ? best : { level: "safe", near: nearest };
+}
+
 export function infoAt(zones: Zone[], lat: number, lng: number): PointInfo {
-  const rank: Record<Level, number> = { critical: 3, warn: 2, safe: 1 };
-  const hits = zones.filter((z) => dist(z.lat, z.lng, lat, lng) <= z.r).sort((a, b) => rank[b.level] - rank[a.level]);
-  const z = hits[0];
-  if (z) return { name: z.name, level: z.level, water: z.water, detail: z.detail, lat, lng };
-  return { name: "Selected location", level: "safe", water: "0–3 cm", detail: "No standing water reported here.", lat, lng };
+  const { level, near } = levelAt(zones, lat, lng);
+  const area = near ? `Near ${near.name}` : "Selected location";
+  if (near && near.level === level && dist(near.lat, near.lng, lat, lng) <= near.r)
+    return { name: near.name, level, water: near.water, detail: near.detail, lat, lng };
+  if (level === "critical") return { name: area, level, water: "45–60 cm", detail: "Deep water spreading from nearby hotspot.", lat, lng };
+  if (level === "warn") return { name: area, level, water: "15–25 cm", detail: "Roads pooling; drains running slowly.", lat, lng };
+  return { name: area, level, water: "0–5 cm", detail: "Drains flowing normally.", lat, lng };
 }
 
 export default function FloodMap({ center, zones, onPick }: { center: { lat: number; lng: number }; zones: Zone[]; onPick: (p: PointInfo) => void }) {
@@ -92,15 +108,24 @@ export default function FloodMap({ center, zones, onPick }: { center: { lat: num
     if (marker.current) marker.current.setMap(null);
     map.current.setCenter(center);
     map.current.setZoom(11);
-    shapes.current = zones.map((z) => {
-      const c = new g.maps.Circle({
-        map: map.current, center: { lat: z.lat, lng: z.lng }, radius: z.r,
-        strokeColor: COLORS[z.level], strokeWeight: 2, fillColor: COLORS[z.level], fillOpacity: 0.3,
-        zIndex: z.level === "critical" ? 3 : z.level === "warn" ? 2 : 1,
-      });
-      c.addListener("click", (e: any) => map.current.__handle(e.latLng.lat(), e.latLng.lng()));
-      return c;
-    });
+    const cells: any[] = [];
+    for (let la = center.lat - SPAN_LAT; la < center.lat + SPAN_LAT; la += STEP) {
+      for (let ln = center.lng - SPAN_LNG; ln < center.lng + SPAN_LNG; ln += STEP) {
+        const { level } = levelAt(zones, la + STEP / 2, ln + STEP / 2);
+        const p = new g.maps.Polygon({
+          map: map.current,
+          paths: [
+            { lat: la, lng: ln }, { lat: la + STEP, lng: ln },
+            { lat: la + STEP, lng: ln + STEP }, { lat: la, lng: ln + STEP },
+          ],
+          strokeColor: COLORS[level], strokeOpacity: 0.35, strokeWeight: 0.5,
+          fillColor: COLORS[level], fillOpacity: level === "safe" ? 0.18 : 0.38,
+        });
+        p.addListener("click", (e: any) => map.current.__handle(e.latLng.lat(), e.latLng.lng()));
+        cells.push(p);
+      }
+    }
+    shapes.current = cells;
   }, [ready, center.lat, center.lng, zones]);
 
   return (
