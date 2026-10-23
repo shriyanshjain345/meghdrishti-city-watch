@@ -3,6 +3,8 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import type { Level, Zone, PointInfo } from "@/components/FloodMap";
 import { getWeather, type Weather } from "@/lib/weather.functions";
 import ActionGuide from "@/components/ActionGuide";
+import WeatherFx from "@/components/WeatherFx";
+import TrendChart from "@/components/TrendChart";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -172,9 +174,21 @@ function Dashboard() {
     { label: "AI Risk Index", value: wx ? (maxRisk >= 70 ? "High" : maxRisk >= 40 ? "Moderate" : "Low") : "…", unit: `${(maxRisk / 10).toFixed(1)}/10`, pct: maxRisk, tone: riskTone(maxRisk) },
   ];
 
+  const hoursMm = slots.reduce((a, b) => a + b.mm, 0);
+  const mult = sel.level === "critical" ? 1.6 : sel.level === "warn" ? 1.2 : 1;
+  const expMm = (hoursMm * mult).toFixed(1);
+  const logChance = Math.min(97, Math.round((peak?.risk ?? 10) * (sel.level === "critical" ? 1.1 : sel.level === "warn" ? 0.8 : 0.35)));
+  const actions: Record<Level, string[]> = {
+    safe: ["Normal travel is fine", "Keep phone charged and check back hourly"],
+    warn: ["Avoid underpasses; use main roads", "Leave early — expect slow traffic", "Move vehicles off low ground"],
+    critical: ["Do not walk or drive through this area", "Stay on higher floors if nearby", "Call 112 if stranded"],
+  };
+
   return (
     <div className="min-h-screen">
-      <header className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-6">
+      <div className="relative mx-auto max-w-7xl">
+      {wx && <WeatherFx cond={wx.cond} mm={wx.mmNow} />}
+      <header className="relative mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-6">
         <div>
           <h1 className="text-2xl font-bold md:text-3xl">
             Megh<span className="text-primary">Drishti</span>
@@ -200,9 +214,7 @@ function Dashboard() {
           </div>
         </div>
       </header>
-
-      <main className="mx-auto max-w-7xl space-y-6 px-4 pb-12">
-        <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <section className="relative grid grid-cols-2 gap-4 px-4 pb-6 lg:grid-cols-4">
           {metrics.map((m) => (
             <div key={m.label} className="glass rounded-xl p-4">
               <p className="text-xs uppercase tracking-wider text-muted-foreground">{m.label}</p>
@@ -214,8 +226,9 @@ function Dashboard() {
               </div>
             </div>
           ))}
-        </section>
-
+      </section>
+      </div>
+      <main className="mx-auto max-w-7xl space-y-6 px-4 pb-12">
         <section className="grid gap-6 lg:grid-cols-5">
           <div className="glass rounded-xl p-5 lg:col-span-3">
             <h2 className="mb-1 text-lg font-bold">City Flood Map — {city}</h2>
@@ -240,6 +253,19 @@ function Dashboard() {
               </div>
               <p className="mt-1 text-sm text-foreground/80">Water level: {sel.water} • {sel.detail}</p>
               {sel.lat !== 0 && <p className="mt-1 text-xs text-muted-foreground tabular-nums">{sel.lat.toFixed(4)}, {sel.lng.toFixed(4)}</p>}
+              {sel.water !== "—" && (
+                <>
+                  <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs text-foreground">
+                    <div className="rounded-md bg-background/40 p-2"><div className="text-muted-foreground">🌧️ Expected rain (6h)</div><b className="text-base">{wx ? `${expMm} mm` : "…"}</b></div>
+                    <div className="rounded-md bg-background/40 p-2"><div className="text-muted-foreground">🌊 Waterlogging chance</div><b className={`text-base ${toneText[riskTone(logChance)]}`}>{wx ? `${logChance}%` : "…"}</b></div>
+                    <div className="rounded-md bg-background/40 p-2"><div className="text-muted-foreground">📏 Water depth</div><b className="text-base">{sel.water}</b></div>
+                  </div>
+                  <p className="mt-3 text-xs font-semibold text-foreground">Recommended action</p>
+                  <ul className="mt-1 space-y-1 text-sm text-foreground/85">
+                    {actions[sel.level].map((a) => <li key={a}>✔ {a}</li>)}
+                  </ul>
+                </>
+              )}
             </div>
           </div>
 
@@ -259,12 +285,13 @@ function Dashboard() {
                   >
                     <span className="text-xs font-semibold tabular-nums">{f.t}</span>
                     {f.icon.length > 4 ? <img src={f.icon} alt={f.cond} className="h-8 w-8" /> : <span className="text-2xl">{rainEmoji(f.rainChance)}</span>}
-                    <span className="text-xs text-primary">💧 {f.rainChance}%</span>
+                    <span className="text-xs text-safe">💧 {f.rainChance}%</span>
                     <span className={`rounded-full px-1.5 text-[11px] font-bold ${toneBg[tone]}/20 ${toneText[tone]}`}>🌊 {f.risk}%</span>
                   </button>
                 );
               })}
             </div>
+            <TrendChart data={slots} active={slotIdx} onPick={setSlotIdx} />
             {slot && (
               <div className={`mt-4 rounded-lg border p-4 ${levelCls[riskTone(slot.risk)]}`}>
                 <div className="flex items-center justify-between">

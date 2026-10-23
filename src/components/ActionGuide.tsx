@@ -9,7 +9,7 @@ type Stage = { id: string; icon: string; title: string; sub: string; img: string
 
 const STAGES: Stage[] = [
   {
-    id: "before", icon: "🎒", title: "Before Rain", sub: "What is needed", img: kitImg, tone: "border-safe text-safe",
+    id: "before", icon: "🎒", title: "Before Rain", sub: "What is needed", img: kitImg, tone: "border-primary text-primary",
     items: [
       { icon: "🔦", label: "Torch & batteries", desc: "Power cuts are common during heavy rain. Keep a torch with spare batteries where everyone can find it in the dark." },
       { icon: "🔋", label: "Charged power bank", desc: "Keep phones and a power bank fully charged so you can stay in touch and check updates." },
@@ -77,7 +77,9 @@ export default function ActionGuide() {
       {/* Stage detail */}
       <div className="grid gap-5 md:grid-cols-2">
         <div className="relative overflow-hidden rounded-xl">
-          <img src={stage.img} alt={stage.title} loading="lazy" width={992} height={672} className="h-full w-full object-cover" />
+          <img key={stage.id} src={stage.img} alt={stage.title} loading="lazy" width={992} height={672} className="live-img h-full w-full object-cover" />
+          <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">{Array.from({ length: 30 }, (_, i) => <span key={i} className="fx-drop absolute -top-10 w-px bg-foreground/40" style={{ left: `${(i * 37) % 100}%`, height: `${12 + (i % 4) * 6}px`, animationDuration: `${0.7 + (i % 5) * 0.15}s`, animationDelay: `-${(i % 9) * 0.2}s` }} />)}</div>
+          <span className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-background/70 px-2 py-0.5 text-xs font-semibold"><span className="h-2 w-2 animate-pulse rounded-full bg-critical" />LIVE</span>
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-background to-transparent p-4">
             <p className={`text-lg font-bold ${stage.tone.split(" ")[1]}`}>{stage.icon} {stage.title}</p>
           </div>
