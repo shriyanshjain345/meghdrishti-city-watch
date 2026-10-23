@@ -39,8 +39,8 @@ function dist(aLat: number, aLng: number, bLat: number, bLng: number) {
 
 const STEP = 0.012, SPAN_LAT = 0.15, SPAN_LNG = 0.17;
 
-export function levelAt(zones: Zone[], lat: number, lng: number): { level: Level; near?: Zone } {
-  let best: { level: Level; near?: Zone } = { level: "safe" };
+export function levelAt(zones: Zone[], lat: number, lng: number): { level: Level; near?: Zone | undefined } {
+  let best: { level: Level; near?: Zone | undefined } = { level: "safe" };
   let nearest: Zone | undefined, nd = Infinity;
   for (const z of zones) {
     const d = dist(z.lat, z.lng, lat, lng);
