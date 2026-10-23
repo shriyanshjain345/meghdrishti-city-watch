@@ -1,5 +1,5 @@
 import { createFileRoute, ClientOnly } from "@tanstack/react-router";
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import type { Level, Zone, PointInfo } from "@/components/FloodMap";
 import { getWeather, type Weather } from "@/lib/weather.functions";
 import ActionGuide from "@/components/ActionGuide";
@@ -199,7 +199,47 @@ function Dashboard() {
       unit: `${(maxRisk / 10).toFixed(1)}/10`,
       pct: maxRisk,
       tone: riskTone(maxRisk),
-      info: "For each of the next six hours the model takes Google's rain probability and expected rainfall, adds this city's flood tendency, and turns it into a 0–100 waterlogging score. The highest hourly score becomes the index.",
+      info: "For each of the next 24 hours the model takes Google's rain probability and expected rainfall, adds this city's flood tendency, and turns it into a 0–100 waterlogging score. The highest hourly score becomes the index.",
+    },
+    {
+      label: "Humidity",
+      value: wx ? `${wx.humidity}` : "…",
+      unit: "%",
+      pct: wx?.humidity ?? 0,
+      tone: riskTone((wx?.humidity ?? 0) - 30),
+      info: "Relative humidity reported live by Google's weather feed. Very humid air means clouds hold more moisture and rain spells last longer.",
+    },
+    {
+      label: "Expected Rain (24h)",
+      value: wx ? `${slots.reduce((a, b) => a + b.mm, 0).toFixed(1)}` : "…",
+      unit: "mm",
+      pct: Math.min(100, slots.reduce((a, b) => a + b.mm, 0) * 2),
+      tone: riskTone(slots.reduce((a, b) => a + b.mm, 0) * 2),
+      info: "The sum of Google's hour-by-hour rainfall forecast for the next 24 hours across the city.",
+    },
+    {
+      label: "Peak Rain Chance",
+      value: wx ? `${Math.max(0, ...slots.map((s) => s.rainChance))}` : "…",
+      unit: "%",
+      pct: Math.max(0, ...slots.map((s) => s.rainChance)),
+      tone: riskTone(Math.max(0, ...slots.map((s) => s.rainChance))),
+      info: "The highest hourly rain probability in Google's 24-hour forecast for this city.",
+    },
+    {
+      label: "Peak Risk Time",
+      value: peak ? peak.t : "…",
+      unit: "IST",
+      pct: maxRisk,
+      tone: riskTone(maxRisk),
+      info: "The clock time in the next 24 hours when the model's waterlogging score is at its highest.",
+    },
+    {
+      label: "Waterlogged Areas",
+      value: `${zones.filter((z) => z.level !== "safe").length}`,
+      unit: `of ${zones.length}`,
+      pct: (zones.filter((z) => z.level !== "safe").length / zones.length) * 100,
+      tone: riskTone((zones.filter((z) => z.level !== "safe").length / zones.length) * 100),
+      info: "How many of the tracked neighbourhoods currently report standing water (amber or red on the map).",
     },
   ];
 
@@ -243,31 +283,28 @@ function Dashboard() {
           </div>
         </div>
       </header>
-      <section className="relative grid grid-cols-2 gap-4 px-4 pb-6 lg:grid-cols-4">
+      <section className="relative px-4 pb-6">
+        <Carousel label="metrics">
           {metrics.map((m) => (
-            <div key={m.label} className="glass relative rounded-xl p-4">
+            <div key={m.label} className="relative shrink-0 basis-1/2 snap-start px-3 py-2 lg:basis-1/4 border-l border-border/50 first:border-l-0">
               <button
                 type="button"
                 aria-label={`How ${m.label} is predicted`}
                 onClick={() => setInfoOpen(infoOpen === m.label ? null : m.label)}
-                className="absolute right-3 top-3 z-10 grid h-5 w-5 place-items-center rounded-full border border-border text-[10px] font-bold italic text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+                className="absolute right-3 top-2 z-10 grid h-5 w-5 place-items-center rounded-full border border-border text-[10px] font-bold italic text-muted-foreground transition-colors hover:border-primary hover:text-primary"
               >
                 i
               </button>
-              <p className="text-xs uppercase tracking-wider text-muted-foreground">{m.label}</p>
+              <p className="pr-6 text-xs uppercase tracking-wider text-muted-foreground">{m.label}</p>
               <p className={`mt-2 font-display text-2xl font-bold md:text-3xl ${toneText[m.tone]}`}>
                 {m.value} <span className="text-sm font-normal text-muted-foreground">{m.unit}</span>
               </p>
-              <div className="mt-3 h-1.5 rounded-full bg-muted">
-                <div className={`h-full rounded-full transition-all duration-700 ${toneBg[m.tone]}`} style={{ width: `${m.pct}%` }} />
-              </div>
               {infoOpen === m.label && (
-                <div className="mt-3 rounded-lg bg-secondary/80 p-3 text-xs leading-relaxed text-muted-foreground">
-                  {m.info}
-                </div>
+                <p className="mt-2 text-xs leading-relaxed text-muted-foreground animate-in fade-in slide-in-from-top-1">{m.info}</p>
               )}
             </div>
           ))}
+        </Carousel>
       </section>
       </div>
       <main className="mx-auto max-w-7xl space-y-6 px-4 pb-12">
@@ -298,7 +335,7 @@ function Dashboard() {
               {sel.water !== "—" && (
                 <>
                   <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs text-foreground">
-                    <div className="rounded-md bg-background/40 p-2"><div className="text-muted-foreground">🌧️ Expected rain (6h)</div><b className="text-base">{wx ? `${expMm} mm` : "…"}</b></div>
+                    <div className="rounded-md bg-background/40 p-2"><div className="text-muted-foreground">🌧️ Expected rain (24h)</div><b className="text-base">{wx ? `${expMm} mm` : "…"}</b></div>
                     <div className="rounded-md bg-background/40 p-2"><div className="text-muted-foreground">🌊 Waterlogging chance</div><b className={`text-base ${toneText[riskTone(logChance)]}`}>{wx ? `${logChance}%` : "…"}</b></div>
                     <div className="rounded-md bg-background/40 p-2"><div className="text-muted-foreground">📏 Water depth</div><b className="text-base">{sel.water}</b></div>
                   </div>
@@ -313,9 +350,9 @@ function Dashboard() {
 
           <div className="glass rounded-xl p-5 lg:col-span-2">
             <h2 className="mb-1 text-lg font-bold">AI Predictive Forecast</h2>
-            <p className="mb-4 text-sm text-muted-foreground">Next 6 hours • tap a time for details</p>
+            <p className="mb-4 text-sm text-muted-foreground">Next 24 hours • swipe or use arrows • tap a time for details</p>
             {!wx && <p className="py-10 text-center text-sm text-muted-foreground">{wxErr ? "Weather data unavailable right now." : "Loading live weather…"}</p>}
-            <div className="grid grid-cols-3 gap-2 sm:grid-cols-6 lg:grid-cols-3 xl:grid-cols-6">
+            <Carousel label="forecast hours">
               {slots.map((f, i) => {
                 const tone = riskTone(f.risk);
                 const active = i === slotIdx;
@@ -323,7 +360,7 @@ function Dashboard() {
                   <button
                     key={i}
                     onClick={() => setSlotIdx(i)}
-                    className={`flex flex-col items-center gap-1 rounded-xl border p-2 transition-all ${active ? "border-primary bg-primary/15 scale-[1.03]" : "border-border bg-secondary/60 hover:bg-secondary"}`}
+                    className={`m-1 flex shrink-0 basis-[calc(16.666%-0.5rem)] snap-start flex-col items-center gap-1 rounded-xl border px-1 py-2 transition-all ${active ? "border-primary bg-primary/15 scale-[1.03]" : "border-border bg-secondary/60 hover:bg-secondary"}`}
                   >
                     <span className="text-xs font-semibold tabular-nums">{f.t}</span>
                     {f.icon.length > 4 ? <img src={f.icon} alt={f.cond} className="h-8 w-8" /> : <span className="text-2xl">{rainEmoji(f.rainChance)}</span>}
@@ -332,7 +369,7 @@ function Dashboard() {
                   </button>
                 );
               })}
-            </div>
+            </Carousel>
             <TrendChart data={slots} active={slotIdx} onPick={setSlotIdx} />
             {slot && (
               <div className={`mt-4 rounded-lg border p-4 ${levelCls[riskTone(slot.risk)]}`}>
@@ -370,6 +407,21 @@ function Dashboard() {
           <ActionGuide />
         </section>
       </main>
+    </div>
+  );
+}
+
+function Carousel({ children, label }: { children: React.ReactNode; label: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const go = (d: number) => ref.current?.scrollBy({ left: d * ref.current.clientWidth, behavior: "smooth" });
+  const btn = "absolute top-1/2 z-20 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full border border-border bg-background/80 text-primary shadow transition-transform hover:scale-110";
+  return (
+    <div className="relative px-6">
+      <button type="button" aria-label={`Previous ${label}`} onClick={() => go(-1)} className={`${btn} left-0`}>‹</button>
+      <div ref={ref} className="flex snap-x snap-mandatory overflow-x-auto scroll-smooth" style={{ scrollbarWidth: "none" }}>
+        {children}
+      </div>
+      <button type="button" aria-label={`Next ${label}`} onClick={() => go(1)} className={`${btn} right-0`}>›</button>
     </div>
   );
 }

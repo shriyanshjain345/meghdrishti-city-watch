@@ -36,7 +36,7 @@ export const getWeather = createServerFn({ method: "GET" })
     const q = `location.latitude=${lat}&location.longitude=${lng}`;
     const [cur, fc] = await Promise.all([
       call(`currentConditions:lookup?${q}`),
-      call(`forecast/hours:lookup?${q}&hours=6`),
+      call(`forecast/hours:lookup?${q}&hours=24&pageSize=24`),
     ]);
     const out: Weather = {
       temp: Math.round(cur.temperature?.degrees ?? 0),
@@ -44,7 +44,7 @@ export const getWeather = createServerFn({ method: "GET" })
       icon: `${cur.weatherCondition?.iconBaseUri ?? ""}.svg`,
       mmNow: cur.precipitation?.qpf?.quantity ?? 0,
       humidity: cur.relativeHumidity ?? 0,
-      hours: (fc.forecastHours ?? []).slice(0, 6).map((h: any) => ({
+      hours: (fc.forecastHours ?? []).slice(0, 24).map((h: any) => ({
         time: h.interval?.startTime ?? "",
         icon: `${h.weatherCondition?.iconBaseUri ?? ""}.svg`,
         cond: h.weatherCondition?.description?.text ?? "—",
