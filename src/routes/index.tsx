@@ -65,7 +65,7 @@ function riskColor(r: number) {
 
 function Dashboard() {
   const [city, setCity] = useState<City>("Mumbai");
-  const [rain, setRain] = useState(CITIES.Mumbai.base);
+  const [rain, setRain] = useState<number>(CITIES.Mumbai.base);
   const [now, setNow] = useState<Date | null>(null);
   const [sel, setSel] = useState(zones[3]!);
 
