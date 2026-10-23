@@ -48,7 +48,7 @@ export default function HistoryMap({ events, selectedId, onSelect }: { events: F
       }
       onAdd() {
         g.maps.OverlayView.preventMapHitsAndGesturesFrom(this.node);
-        this["getPanes"]().overlayMouseTarget.appendChild(this.node);
+        this["getPanes"]()?.overlayMouseTarget?.appendChild(this.node);
       }
       draw() {
         const p = this["getProjection"]()?.fromLatLngToDivPixel(new g.maps.LatLng(this.pos.lat, this.pos.lng));
