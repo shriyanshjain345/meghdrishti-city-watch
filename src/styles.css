@@ -69,3 +69,27 @@
 @utility fx-sun { animation: fx-glow 4s ease-in-out infinite; }
 @utility fx-flash { animation: fx-flash 6s linear infinite; }
 @utility live-img { animation: fx-kenburns 14s ease-in-out infinite alternate; }
+
+/* Historical analysis: glowing cyan accents, radar sweep, pulsing markers */
+@keyframes fx-sweep { to { transform: rotate(360deg); } }
+@keyframes fx-ping { 0% { transform: scale(0.6); opacity: 0.9; } 100% { transform: scale(2.6); opacity: 0; } }
+@keyframes fx-dash { to { stroke-dashoffset: -24; } }
+@utility neon {
+  border: 1px solid color-mix(in oklab, var(--primary) 45%, transparent);
+  box-shadow: 0 0 22px -8px color-mix(in oklab, var(--primary) 70%, transparent), inset 0 0 18px -12px var(--primary);
+}
+@utility glass-hi {
+  background: linear-gradient(145deg, color-mix(in oklab, var(--card) 80%, transparent), color-mix(in oklab, var(--accent) 35%, transparent));
+  backdrop-filter: blur(14px) saturate(140%);
+}
+@utility text-glow { text-shadow: 0 0 18px color-mix(in oklab, var(--primary) 70%, transparent); }
+@utility radar-sweep {
+  background: conic-gradient(from 0deg, color-mix(in oklab, var(--primary) 55%, transparent), transparent 28%);
+  animation: fx-sweep 4s linear infinite;
+}
+@utility ping-ring { animation: fx-ping 1.8s ease-out infinite; }
+@utility flow-dash { animation: fx-dash 1.2s linear infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .radar-sweep, .ping-ring, .flow-dash, .fx-drop, .fx-cloud, .live-img { animation: none; }
+}

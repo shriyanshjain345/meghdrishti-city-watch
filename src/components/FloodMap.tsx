@@ -1,34 +1,11 @@
 import { useEffect, useRef, useState } from "react";
+import { loadMaps, DARK_MAP_STYLE } from "@/lib/maps-loader";
 
 export type Level = "safe" | "warn" | "critical";
 export type Zone = { name: string; level: Level; lat: number; lng: number; r: number; water: string; detail: string };
 export type PointInfo = { name: string; level: Level; water: string; detail: string; lat: number; lng: number };
 
 const COLORS: Record<Level, string> = { safe: "#3b82f6", warn: "#f59e0b", critical: "#ef4444" };
-
-declare global {
-  interface Window {
-    google?: any;
-    __meghMapsReady?: () => void;
-  }
-}
-
-let loader: Promise<void> | null = null;
-function loadMaps() {
-  if (typeof window === "undefined") return Promise.resolve();
-  if (window.google?.maps?.Map) return Promise.resolve();
-  if (loader) return loader;
-  loader = new Promise((resolve, reject) => {
-    window.__meghMapsReady = () => resolve();
-    const env = import.meta.env as Record<string, string | undefined>;
-    const s = document.createElement("script");
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${env["VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY"]}&loading=async&callback=__meghMapsReady&channel=${env["VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID"]}`;
-    s.async = true;
-    s.onerror = () => reject(new Error("Map failed to load"));
-    document.head.appendChild(s);
-  });
-  return loader;
-}
 
 function dist(aLat: number, aLng: number, bLat: number, bLng: number) {
   const R = 6371000, toR = Math.PI / 180;
@@ -124,14 +101,7 @@ export default function FloodMap({ city, center, zones, onPick }: { city: string
         const g = window.google;
         map.current = new g.maps.Map(el.current, {
           center, zoom: 11, clickableIcons: false, disableDefaultUI: true, zoomControl: true, gestureHandling: "greedy",
-          styles: [
-            { elementType: "geometry", stylers: [{ color: "#1d2c3a" }] },
-            { elementType: "labels.text.fill", stylers: [{ color: "#9fb3c8" }] },
-            { elementType: "labels.text.stroke", stylers: [{ color: "#0f1a24" }] },
-            { featureType: "water", elementType: "geometry", stylers: [{ color: "#0b1622" }] },
-            { featureType: "road", elementType: "geometry", stylers: [{ color: "#2b3f52" }] },
-            { featureType: "poi", stylers: [{ visibility: "off" }] },
-          ],
+          styles: DARK_MAP_STYLE,
         });
         const handle = (lat: number, lng: number) => {
           if (marker.current) marker.current.setMap(null);
