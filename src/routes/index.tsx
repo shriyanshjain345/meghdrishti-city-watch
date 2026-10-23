@@ -28,7 +28,7 @@ const zones: { id: string; name: string; level: Level; x: number; y: number; w: 
   { id: "e", name: "Eastern Suburbs", level: "safe", x: 63, y: 5, w: 32, h: 40, water: "5 cm", detail: "Minor pooling on arterial roads." },
   { id: "c", name: "Central Zone", level: "warn", x: 5, y: 36, w: 55, h: 30, water: "28 cm", detail: "Underpasses filling; outflows running slowly." },
   { id: "l", name: "Low-lying Area", level: "critical", x: 5, y: 69, w: 45, h: 26, water: "72 cm", detail: "Relief camps open; pumps running at full capacity." },
-  { id: "c2", name: "Coastal Belt", level: "warn", x: 53, y: 48, w: 42, h: 47, water: "34 cm", detail: "High tide at 16:40 may block outfalls." },
+  { id: "c2", name: "Coastal Belt", level: "warn", x: 62, y: 48, w: 33, h: 47, water: "34 cm", detail: "High tide at 16:40 may block outfalls." },
 ];
 
 const FORECAST = [
@@ -175,8 +175,8 @@ function Dashboard() {
             <h2 className="mb-1 text-lg font-bold">AI Predictive Forecast</h2>
             <p className="mb-5 text-sm text-muted-foreground">Next 6 hours • rainfall & flood risk</p>
             <div className="flex h-44 items-end gap-2">
-              {slots.map((f) => (
-                <div key={f.t} className="flex flex-1 flex-col items-center gap-1">
+              {slots.map((f, i) => (
+                <div key={i} className="flex flex-1 flex-col items-center gap-1">
                   <span className="text-xs text-muted-foreground">{f.mm}</span>
                   <div className="w-full rounded-t-md bg-primary/80 transition-all" style={{ height: `${f.mm * 1.6}px` }} />
                   <span className="text-[10px] tabular-nums md:text-xs">{f.t}</span>
@@ -185,8 +185,8 @@ function Dashboard() {
             </div>
             <p className="mt-1 text-center text-xs text-muted-foreground">Rainfall (mm/hr)</p>
             <div className="mt-5 space-y-2.5">
-              {slots.map((f) => (
-                <div key={f.t} className="flex items-center gap-3 text-sm">
+              {slots.map((f, i) => (
+                <div key={i} className="flex items-center gap-3 text-sm">
                   <span className="w-12 tabular-nums text-muted-foreground">{f.t}</span>
                   <div className="h-2 flex-1 rounded-full bg-muted">
                     <div className={`h-full rounded-full ${riskColor(f.risk)}`} style={{ width: `${f.risk}%` }} />
