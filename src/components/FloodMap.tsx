@@ -37,28 +37,47 @@ function dist(aLat: number, aLng: number, bLat: number, bLng: number) {
   return 2 * R * Math.asin(Math.sqrt(x));
 }
 
-const STEP = 0.012, SPAN_LAT = 0.15, SPAN_LNG = 0.17;
+type Blob = { lat: number; lng: number; r: number; level: Level };
+const DESC: Record<Level, { water: string; detail: string }> = {
+  safe: { water: "0–3 cm", detail: "Clear roads and area." },
+  warn: { water: "15–30 cm", detail: "Underpass slow to drain." },
+  critical: { water: "45–80 cm", detail: "Narrow lanes holding water." },
+};
+const RANK: Record<Level, number> = { safe: 1, warn: 2, critical: 3 };
 
-export function levelAt(zones: Zone[], lat: number, lng: number): { level: Level; near?: Zone | undefined } {
-  let best: { level: Level; near?: Zone | undefined } = { level: "safe" };
-  let nearest: Zone | undefined, nd = Infinity;
-  for (const z of zones) {
-    const d = dist(z.lat, z.lng, lat, lng);
-    if (d < nd) { nd = d; nearest = z; }
-    if (z.level === "critical" && d <= z.r * 1.4) return { level: "critical", near: z };
-    if (z.level !== "safe" && d <= z.r * 2.4) best = { level: "warn", near: z };
+function ring(z: Zone, count: number, spread: number, rr: number, level: Level, out: Blob[]) {
+  const mPerLat = 111000, mPerLng = 111000 * Math.cos((z.lat * Math.PI) / 180);
+  for (let i = 0; i < count; i++) {
+    const a = (i / count) * Math.PI * 2 + (z.lat * 7) % 1;
+    out.push({ lat: z.lat + (Math.sin(a) * spread) / mPerLat, lng: z.lng + (Math.cos(a) * spread) / mPerLng, r: rr, level });
   }
-  return best.near ? best : { level: "safe", near: nearest };
 }
 
-export function infoAt(zones: Zone[], lat: number, lng: number): PointInfo {
-  const { level, near } = levelAt(zones, lat, lng);
-  const area = near ? `Near ${near.name}` : "Selected location";
-  if (near && near.level === level && dist(near.lat, near.lng, lat, lng) <= near.r)
-    return { name: near.name, level, water: near.water, detail: near.detail, lat, lng };
-  if (level === "critical") return { name: area, level, water: "45–60 cm", detail: "Deep water spreading from nearby hotspot.", lat, lng };
-  if (level === "warn") return { name: area, level, water: "15–25 cm", detail: "Roads pooling; drains running slowly.", lat, lng };
-  return { name: area, level, water: "0–5 cm", detail: "Drains flowing normally.", lat, lng };
+export function buildBlobs(center: { lat: number; lng: number }, zones: Zone[]): Blob[] {
+  const out: Blob[] = [];
+  // green base: overlapping circles over the whole city
+  for (let la = -0.15; la <= 0.15; la += 0.035)
+    for (let ln = -0.17; ln <= 0.17; ln += 0.035)
+      out.push({ lat: center.lat + la, lng: center.lng + ln, r: 2800, level: "safe" });
+  for (const z of zones) {
+    if (z.level === "safe") continue;
+    out.push({ lat: z.lat, lng: z.lng, r: z.r * 1.5, level: "warn" });
+    ring(z, 6, z.r * 1.4, z.r * 0.9, "warn", out);
+  }
+  for (const z of zones) {
+    if (z.level !== "critical") continue;
+    out.push({ lat: z.lat, lng: z.lng, r: z.r * 0.8, level: "critical" });
+    ring(z, 4, z.r * 0.6, z.r * 0.45, "critical", out);
+  }
+  return out;
+}
+
+export function infoAt(zones: Zone[], lat: number, lng: number, blobs: Blob[]): PointInfo {
+  let level: Level = "safe";
+  for (const b of blobs) if (RANK[b.level] > RANK[level] && dist(b.lat, b.lng, lat, lng) <= b.r) level = b.level;
+  let near: Zone | undefined, nd = Infinity;
+  for (const z of zones) { const d = dist(z.lat, z.lng, lat, lng); if (d < nd) { nd = d; near = z; } }
+  return { name: near ? `Near ${near.name}` : "Selected location", level, ...DESC[level], lat, lng };
 }
 
 export default function FloodMap({ center, zones, onPick }: { center: { lat: number; lng: number }; zones: Zone[]; onPick: (p: PointInfo) => void }) {
@@ -70,6 +89,7 @@ export default function FloodMap({ center, zones, onPick }: { center: { lat: num
   pickRef.current = onPick;
   const zonesRef = useRef(zones);
   zonesRef.current = zones;
+  const blobsRef = useRef<Blob[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
 
@@ -92,7 +112,7 @@ export default function FloodMap({ center, zones, onPick }: { center: { lat: num
         const handle = (lat: number, lng: number) => {
           if (marker.current) marker.current.setMap(null);
           marker.current = new g.maps.Marker({ position: { lat, lng }, map: map.current });
-          pickRef.current(infoAt(zonesRef.current, lat, lng));
+          pickRef.current(infoAt(zonesRef.current, lat, lng, blobsRef.current));
         };
         map.current.addListener("click", (e: any) => handle(e.latLng.lat(), e.latLng.lng()));
         (map.current as any).__handle = handle;
@@ -108,23 +128,18 @@ export default function FloodMap({ center, zones, onPick }: { center: { lat: num
     if (marker.current) marker.current.setMap(null);
     map.current.setCenter(center);
     map.current.setZoom(11);
-    const cells: any[] = [];
-    for (let la = center.lat - SPAN_LAT; la < center.lat + SPAN_LAT; la += STEP) {
-      for (let ln = center.lng - SPAN_LNG; ln < center.lng + SPAN_LNG; ln += STEP) {
-        const { level } = levelAt(zones, la + STEP / 2, ln + STEP / 2);
-        const p = new g.maps.Polygon({
-          map: map.current,
-          paths: [
-            { lat: la, lng: ln }, { lat: la + STEP, lng: ln },
-            { lat: la + STEP, lng: ln + STEP }, { lat: la, lng: ln + STEP },
-          ],
-          strokeColor: COLORS[level], strokeOpacity: 0.35, strokeWeight: 0.5,
-          fillColor: COLORS[level], fillOpacity: level === "safe" ? 0.18 : 0.38,
-        });
-        p.addListener("click", (e: any) => map.current.__handle(e.latLng.lat(), e.latLng.lng()));
-        cells.push(p);
-      }
-    }
+    const blobs = buildBlobs(center, zones);
+    blobsRef.current = blobs;
+    const cells = blobs.map((b) => {
+      const c = new g.maps.Circle({
+        map: map.current, center: { lat: b.lat, lng: b.lng }, radius: b.r,
+        strokeColor: COLORS[b.level], strokeOpacity: 0.5, strokeWeight: 1,
+        fillColor: COLORS[b.level], fillOpacity: b.level === "safe" ? 0.12 : b.level === "warn" ? 0.3 : 0.45,
+        zIndex: RANK[b.level],
+      });
+      c.addListener("click", (e: any) => map.current.__handle(e.latLng.lat(), e.latLng.lng()));
+      return c;
+    });
     shapes.current = cells;
   }, [ready, center.lat, center.lng, zones]);
 
