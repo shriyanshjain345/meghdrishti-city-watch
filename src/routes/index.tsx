@@ -192,11 +192,11 @@ function Dashboard() {
           <div className="glass rounded-xl p-5 lg:col-span-3">
             <h2 className="mb-1 text-lg font-bold">City Flood Map — {city}</h2>
             <p className="mb-2 text-sm text-muted-foreground">Click anywhere on the map for water status at that spot</p>
-            <div className="mb-3 flex gap-4 text-xs">
+            <div className="mb-3 flex flex-wrap gap-4 text-xs">
               {(["safe", "warn", "critical"] as Level[]).map((l) => (
                 <span key={l} className="flex items-center gap-1.5">
                   <span className={`h-3 w-3 rounded-full ${l === "safe" ? "bg-safe" : l === "warn" ? "bg-warn" : "bg-critical"}`} />
-                  {levelText[l]}
+                  {levelText[l]} — {l === "safe" ? "clear roads" : l === "warn" ? "underpass slow to drain" : "narrow lanes holding water"}
                 </span>
               ))}
             </div>
