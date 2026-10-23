@@ -243,29 +243,54 @@ function Dashboard() {
 
           <div className="glass rounded-xl p-5 lg:col-span-2">
             <h2 className="mb-1 text-lg font-bold">AI Predictive Forecast</h2>
-            <p className="mb-5 text-sm text-muted-foreground">Next 6 hours • rainfall & flood risk</p>
-            <div className="flex h-44 items-end gap-2">
-              {slots.map((f, i) => (
-                <div key={i} className="flex flex-1 flex-col items-center gap-1">
-                  <span className="text-xs text-muted-foreground">{f.mm}</span>
-                  <div className="w-full rounded-t-md bg-primary/80 transition-all" style={{ height: `${f.mm * 1.6}px` }} />
-                  <span className="text-[10px] tabular-nums md:text-xs">{f.t}</span>
-                </div>
-              ))}
+            <p className="mb-4 text-sm text-muted-foreground">Next 6 hours • tap a time for details</p>
+            {!wx && <p className="py-10 text-center text-sm text-muted-foreground">{wxErr ? "Weather data unavailable right now." : "Loading live weather…"}</p>}
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-6 lg:grid-cols-3 xl:grid-cols-6">
+              {slots.map((f, i) => {
+                const tone = riskTone(f.risk);
+                const active = i === slotIdx;
+                return (
+                  <button
+                    key={i}
+                    onClick={() => setSlotIdx(i)}
+                    className={`flex flex-col items-center gap-1 rounded-xl border p-2 transition-all ${active ? "border-primary bg-primary/15 scale-[1.03]" : "border-border bg-secondary/60 hover:bg-secondary"}`}
+                  >
+                    <span className="text-xs font-semibold tabular-nums">{f.t}</span>
+                    {f.icon.length > 4 ? <img src={f.icon} alt={f.cond} className="h-8 w-8" /> : <span className="text-2xl">{rainEmoji(f.rainChance)}</span>}
+                    <span className="text-xs text-info">💧 {f.rainChance}%</span>
+                    <span className={`rounded-full px-1.5 text-[11px] font-bold ${toneBg[tone]}/20 ${toneText[tone]}`}>🌊 {f.risk}%</span>
+                  </button>
+                );
+              })}
             </div>
-            <p className="mt-1 text-center text-xs text-muted-foreground">Rainfall (mm/hr)</p>
-            <div className="mt-5 space-y-2.5">
-              {slots.map((f, i) => (
-                <div key={i} className="flex items-center gap-3 text-sm">
-                  <span className="w-12 tabular-nums text-muted-foreground">{f.t}</span>
-                  <div className="h-2 flex-1 rounded-full bg-muted">
-                    <div className={`h-full rounded-full ${riskColor(f.risk)}`} style={{ width: `${f.risk}%` }} />
-                  </div>
-                  <span className="w-10 text-right">{f.risk}%</span>
+            {slot && (
+              <div className={`mt-4 rounded-lg border p-4 ${levelCls[riskTone(slot.risk)]}`}>
+                <div className="flex items-center justify-between">
+                  <b className="text-foreground">{slot.t} IST • {slot.cond}</b>
+                  <span className="text-sm">{slot.temp}°C</span>
                 </div>
-              ))}
-            </div>
-            <p className="mt-4 rounded-lg bg-accent p-3 text-xs">🤖 Peak risk expected at {peak.t}. Model confidence 89%.</p>
+                <div className="mt-2 grid grid-cols-3 gap-2 text-center text-xs text-foreground">
+                  <div className="rounded-md bg-background/40 p-2"><div className="text-muted-foreground">Rain chance</div><b className="text-base">{slot.rainChance}%</b></div>
+                  <div className="rounded-md bg-background/40 p-2"><div className="text-muted-foreground">Rainfall</div><b className="text-base">{slot.mm.toFixed(1)} mm</b></div>
+                  <div className="rounded-md bg-background/40 p-2"><div className="text-muted-foreground">Flood risk</div><b className={`text-base ${toneText[riskTone(slot.risk)]}`}>{slot.risk}%</b></div>
+                </div>
+                <p className="mt-3 text-sm text-foreground/90">{outlook(slot)}</p>
+                <p className="mt-2 text-xs font-semibold text-foreground">Where:</p>
+                {affected.length ? (
+                  <ul className="mt-1 space-y-1 text-xs text-foreground/80">
+                    {affected.map((z) => (
+                      <li key={z.name} className="flex items-center gap-2">
+                        <span className={`h-2 w-2 rounded-full ${toneBg[z.level]}`} />
+                        {z.name} — {z.level === "critical" ? "narrow lanes holding water" : "underpass slow to drain"}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-1 text-xs text-foreground/80">All areas of {city} expected clear.</p>
+                )}
+              </div>
+            )}
+            {peak && <p className="mt-3 rounded-lg bg-accent p-3 text-xs">🤖 Highest flood risk at {peak.t} ({peak.risk}%). Live data from Google Weather.</p>}
           </div>
         </section>
 
