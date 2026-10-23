@@ -1,6 +1,7 @@
 import { createFileRoute, ClientOnly } from "@tanstack/react-router";
 import { lazy, Suspense, useEffect, useState } from "react";
 import type { Level, Zone, PointInfo } from "@/components/FloodMap";
+import { getWeather, type Weather } from "@/lib/weather.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -70,20 +71,11 @@ const CITY_MAP: Record<string, { center: { lat: number; lng: number }; zones: Zo
   },
 };
 
-const FORECAST = [
-  { mm: 42, risk: 58 },
-  { mm: 61, risk: 70 },
-  { mm: 78, risk: 84 },
-  { mm: 66, risk: 79 },
-  { mm: 39, risk: 62 },
-  { mm: 22, risk: 45 },
-];
-
 const CITIES = {
-  Mumbai: { temp: 26, cond: "Heavy Thunderstorm", base: 48 },
-  Jaipur: { temp: 29, cond: "Intense Rain Spells", base: 34 },
-  Delhi: { temp: 24, cond: "Thunderstorm with Dust", base: 41 },
-  Bengaluru: { temp: 22, cond: "Drizzle & Overcast", base: 19 },
+  Mumbai: { temp: 26, cond: "Heavy Thunderstorm", base: 18 },
+  Jaipur: { temp: 29, cond: "Intense Rain Spells", base: 10 },
+  Delhi: { temp: 24, cond: "Thunderstorm with Dust", base: 14 },
+  Bengaluru: { temp: 22, cond: "Drizzle & Overcast", base: 8 },
 } as const;
 type City = keyof typeof CITIES;
 
@@ -94,18 +86,27 @@ const timeFmt = new Intl.DateTimeFormat("en-IN", {
   timeZone: "Asia/Kolkata",
 });
 
-function slotTimes(now: Date) {
-  return FORECAST.map((f, i) => ({ ...f, t: timeFmt.format(new Date(now.getTime() + (i + 1) * 3_600_000)) }));
-}
+type Slot = { t: string; icon: string; cond: string; rainChance: number; mm: number; temp: number; risk: number };
 
-function riskColor(r: number) {
-  return r >= 75 ? "bg-critical" : r >= 55 ? "bg-warn" : "bg-safe";
+function floodRisk(rainChance: number, mm: number, base: number) {
+  return Math.round(Math.min(98, Math.max(3, base + rainChance * 0.45 + mm * 9)));
+}
+function riskTone(r: number): Level {
+  return r >= 70 ? "critical" : r >= 40 ? "warn" : "safe";
+}
+const toneText: Record<Level, string> = { safe: "text-safe", warn: "text-warn", critical: "text-critical" };
+const toneBg: Record<Level, string> = { safe: "bg-safe", warn: "bg-warn", critical: "bg-critical" };
+
+function rainEmoji(chance: number) {
+  return chance >= 70 ? "⛈️" : chance >= 40 ? "🌧️" : chance >= 15 ? "🌦️" : "☁️";
 }
 
 function Dashboard() {
   const [city, setCity] = useState<City>("Mumbai");
-  const [rain, setRain] = useState<number>(CITIES.Mumbai.base);
   const [now, setNow] = useState<Date | null>(null);
+  const [wx, setWx] = useState<Weather | null>(null);
+  const [wxErr, setWxErr] = useState(false);
+  const [slotIdx, setSlotIdx] = useState(0);
   const firstZone = (c: City): PointInfo => {
     const z = CITY_MAP[c]!.zones[0]!;
     return { name: z.name, level: z.level, water: z.water, detail: z.detail, lat: z.lat, lng: z.lng };
@@ -115,34 +116,60 @@ function Dashboard() {
   useEffect(() => {
     const tick = () => setNow(new Date());
     tick();
-    const id = setInterval(tick, 2000);
+    const id = setInterval(tick, 30_000);
     return () => clearInterval(id);
   }, []);
 
   useEffect(() => {
-    const id = setInterval(() => {
-      setRain((r) => Math.max(8, Math.min(90, +(r + (Math.random() - 0.45) * 4).toFixed(1))));
-    }, 2000);
-    return () => clearInterval(id);
-  }, []);
+    let live = true;
+    setWx(null);
+    setWxErr(false);
+    getWeather({ data: { city } })
+      .then((w) => live && setWx(w))
+      .catch(() => live && setWxErr(true));
+    return () => { live = false; };
+  }, [city]);
 
   const pickCity = (c: City) => {
     setCity(c);
-    setRain(CITIES[c].base);
+    setSlotIdx(0);
     setSel(firstZone(c));
   };
 
   const clock = now ? timeFmt.format(now) : "--:--";
-  const slots = now ? slotTimes(now) : FORECAST.map((f) => ({ ...f, t: "--:--" }));
-  const peak = slots.reduce((a, b) => (b.risk > a.risk ? b : a));
+  const base = CITIES[city].base;
+  const slots: Slot[] = (wx?.hours ?? []).map((h) => ({
+    ...h,
+    t: h.time ? timeFmt.format(new Date(h.time)) : "--:--",
+    risk: floodRisk(h.rainChance, h.mm, base),
+  }));
+  const slot = slots[slotIdx];
+  const peak = slots.length ? slots.reduce((a, b) => (b.risk > a.risk ? b : a)) : null;
+  const zones = CITY_MAP[city]!.zones;
+  const affected = slot
+    ? slot.risk >= 70
+      ? zones.filter((z) => z.level !== "safe")
+      : slot.risk >= 40
+        ? zones.filter((z) => z.level === "critical")
+        : []
+    : [];
+  const outlook = (s: Slot) =>
+    s.risk >= 70
+      ? "Narrow lanes and underpasses likely to hold water; expect slow traffic around low-lying spots."
+      : s.risk >= 40
+        ? "Some pooling possible at underpasses that drain slowly."
+        : "Roads expected to stay clear.";
 
-  const riskIdx = rain > 55 ? "High" : "Moderate";
+  const rain = wx ? +wx.mmNow.toFixed(1) : 0;
+  const soil = wx ? Math.round(Math.min(99, wx.humidity * 0.9 + rain * 2)) : 0;
+  const drain = Math.max(5, Math.round(100 - rain * 6 - base));
+  const maxRisk = peak?.risk ?? 0;
   const metrics = [
-    { label: "Current Rainfall", value: `${rain}`, unit: "mm/hr", pct: rain, tone: rain > 55 ? "critical" : "warn" },
-    { label: "Soil Saturation", value: "87", unit: "%", pct: 87, tone: "warn" },
-    { label: "Drainage Capacity", value: "34", unit: "% left", pct: 34, tone: "critical" },
-    { label: "AI Risk Index", value: riskIdx, unit: rain > 55 ? "8.1/10" : "6.2/10", pct: rain > 55 ? 81 : 62, tone: rain > 55 ? "critical" : "warn" },
-  ] as const;
+    { label: "Current Rainfall", value: wx ? `${rain}` : "…", unit: "mm/hr", pct: Math.min(100, rain * 5), tone: riskTone(rain * 8) },
+    { label: "Soil Saturation", value: wx ? `${soil}` : "…", unit: "%", pct: soil, tone: riskTone(soil - 20) },
+    { label: "Drainage Capacity", value: wx ? `${drain}` : "…", unit: "% left", pct: drain, tone: riskTone(100 - drain) },
+    { label: "AI Risk Index", value: wx ? (maxRisk >= 70 ? "High" : maxRisk >= 40 ? "Moderate" : "Low") : "…", unit: `${(maxRisk / 10).toFixed(1)}/10`, pct: maxRisk, tone: riskTone(maxRisk) },
+  ];
 
   return (
     <div className="min-h-screen">
@@ -151,7 +178,7 @@ function Dashboard() {
           <h1 className="text-2xl font-bold md:text-3xl">
             Megh<span className="text-primary">Drishti</span>
           </h1>
-          <p className="text-sm text-muted-foreground">Urban Flood Intelligence for India • Live simulation</p>
+          <p className="text-sm text-muted-foreground">Urban Flood Intelligence for India • Live weather</p>
         </div>
         <div className="glass flex items-center gap-4 rounded-xl px-4 py-3">
           <select
@@ -163,9 +190,9 @@ function Dashboard() {
               <option key={c}>{c}</option>
             ))}
           </select>
-          <div className="text-3xl font-bold font-display">{CITIES[city].temp}°C</div>
+          <div className="text-3xl font-bold font-display">{wx ? wx.temp : CITIES[city].temp}°C</div>
           <div className="text-sm">
-            <div>🌧 {CITIES[city].cond}</div>
+            <div className="flex items-center gap-1">{wx && <img src={wx.icon} alt="" className="h-5 w-5" />}{wx ? wx.cond : "Loading…"}</div>
             <div className="flex items-center gap-1.5 text-muted-foreground">
               <span className="h-2 w-2 rounded-full bg-safe animate-pulse" />LIVE {clock} IST
             </div>
@@ -178,11 +205,11 @@ function Dashboard() {
           {metrics.map((m) => (
             <div key={m.label} className="glass rounded-xl p-4">
               <p className="text-xs uppercase tracking-wider text-muted-foreground">{m.label}</p>
-              <p className={`mt-2 font-display text-2xl font-bold md:text-3xl ${m.tone === "critical" ? "text-critical" : "text-warn"}`}>
+              <p className={`mt-2 font-display text-2xl font-bold md:text-3xl ${toneText[m.tone]}`}>
                 {m.value} <span className="text-sm font-normal text-muted-foreground">{m.unit}</span>
               </p>
               <div className="mt-3 h-1.5 rounded-full bg-muted">
-                <div className={`h-full rounded-full transition-all duration-700 ${m.tone === "critical" ? "bg-critical" : "bg-warn"}`} style={{ width: `${m.pct}%` }} />
+                <div className={`h-full rounded-full transition-all duration-700 ${toneBg[m.tone]}`} style={{ width: `${m.pct}%` }} />
               </div>
             </div>
           ))}
@@ -217,29 +244,54 @@ function Dashboard() {
 
           <div className="glass rounded-xl p-5 lg:col-span-2">
             <h2 className="mb-1 text-lg font-bold">AI Predictive Forecast</h2>
-            <p className="mb-5 text-sm text-muted-foreground">Next 6 hours • rainfall & flood risk</p>
-            <div className="flex h-44 items-end gap-2">
-              {slots.map((f, i) => (
-                <div key={i} className="flex flex-1 flex-col items-center gap-1">
-                  <span className="text-xs text-muted-foreground">{f.mm}</span>
-                  <div className="w-full rounded-t-md bg-primary/80 transition-all" style={{ height: `${f.mm * 1.6}px` }} />
-                  <span className="text-[10px] tabular-nums md:text-xs">{f.t}</span>
-                </div>
-              ))}
+            <p className="mb-4 text-sm text-muted-foreground">Next 6 hours • tap a time for details</p>
+            {!wx && <p className="py-10 text-center text-sm text-muted-foreground">{wxErr ? "Weather data unavailable right now." : "Loading live weather…"}</p>}
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-6 lg:grid-cols-3 xl:grid-cols-6">
+              {slots.map((f, i) => {
+                const tone = riskTone(f.risk);
+                const active = i === slotIdx;
+                return (
+                  <button
+                    key={i}
+                    onClick={() => setSlotIdx(i)}
+                    className={`flex flex-col items-center gap-1 rounded-xl border p-2 transition-all ${active ? "border-primary bg-primary/15 scale-[1.03]" : "border-border bg-secondary/60 hover:bg-secondary"}`}
+                  >
+                    <span className="text-xs font-semibold tabular-nums">{f.t}</span>
+                    {f.icon.length > 4 ? <img src={f.icon} alt={f.cond} className="h-8 w-8" /> : <span className="text-2xl">{rainEmoji(f.rainChance)}</span>}
+                    <span className="text-xs text-primary">💧 {f.rainChance}%</span>
+                    <span className={`rounded-full px-1.5 text-[11px] font-bold ${toneBg[tone]}/20 ${toneText[tone]}`}>🌊 {f.risk}%</span>
+                  </button>
+                );
+              })}
             </div>
-            <p className="mt-1 text-center text-xs text-muted-foreground">Rainfall (mm/hr)</p>
-            <div className="mt-5 space-y-2.5">
-              {slots.map((f, i) => (
-                <div key={i} className="flex items-center gap-3 text-sm">
-                  <span className="w-12 tabular-nums text-muted-foreground">{f.t}</span>
-                  <div className="h-2 flex-1 rounded-full bg-muted">
-                    <div className={`h-full rounded-full ${riskColor(f.risk)}`} style={{ width: `${f.risk}%` }} />
-                  </div>
-                  <span className="w-10 text-right">{f.risk}%</span>
+            {slot && (
+              <div className={`mt-4 rounded-lg border p-4 ${levelCls[riskTone(slot.risk)]}`}>
+                <div className="flex items-center justify-between">
+                  <b className="text-foreground">{slot.t} IST • {slot.cond}</b>
+                  <span className="text-sm">{slot.temp}°C</span>
                 </div>
-              ))}
-            </div>
-            <p className="mt-4 rounded-lg bg-accent p-3 text-xs">🤖 Peak risk expected at {peak.t}. Model confidence 89%.</p>
+                <div className="mt-2 grid grid-cols-3 gap-2 text-center text-xs text-foreground">
+                  <div className="rounded-md bg-background/40 p-2"><div className="text-muted-foreground">Rain chance</div><b className="text-base">{slot.rainChance}%</b></div>
+                  <div className="rounded-md bg-background/40 p-2"><div className="text-muted-foreground">Rainfall</div><b className="text-base">{slot.mm.toFixed(1)} mm</b></div>
+                  <div className="rounded-md bg-background/40 p-2"><div className="text-muted-foreground">Flood risk</div><b className={`text-base ${toneText[riskTone(slot.risk)]}`}>{slot.risk}%</b></div>
+                </div>
+                <p className="mt-3 text-sm text-foreground/90">{outlook(slot)}</p>
+                <p className="mt-2 text-xs font-semibold text-foreground">Where:</p>
+                {affected.length ? (
+                  <ul className="mt-1 space-y-1 text-xs text-foreground/80">
+                    {affected.map((z) => (
+                      <li key={z.name} className="flex items-center gap-2">
+                        <span className={`h-2 w-2 rounded-full ${toneBg[z.level]}`} />
+                        {z.name} — {z.level === "critical" ? "narrow lanes holding water" : "underpass slow to drain"}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-1 text-xs text-foreground/80">All areas of {city} expected clear.</p>
+                )}
+              </div>
+            )}
+            {peak && <p className="mt-3 rounded-lg bg-accent p-3 text-xs">🤖 Highest flood risk at {peak.t} ({peak.risk}%). Live data from Google Weather.</p>}
           </div>
         </section>
 
