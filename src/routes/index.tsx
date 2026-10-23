@@ -110,6 +110,7 @@ function Dashboard() {
   const [wx, setWx] = useState<Weather | null>(null);
   const [wxErr, setWxErr] = useState(false);
   const [slotIdx, setSlotIdx] = useState(0);
+  const [infoOpen, setInfoOpen] = useState<string | null>(null);
   const firstZone = (c: City): PointInfo => {
     const z = CITY_MAP[c]!.zones[0]!;
     return { name: z.name, level: z.level, water: z.water, detail: z.detail, lat: z.lat, lng: z.lng };
@@ -168,10 +169,38 @@ function Dashboard() {
   const drain = Math.max(5, Math.round(100 - rain * 6 - base));
   const maxRisk = peak?.risk ?? 0;
   const metrics = [
-    { label: "Current Rainfall", value: wx ? `${rain}` : "…", unit: "mm/hr", pct: Math.min(100, rain * 5), tone: riskTone(rain * 8) },
-    { label: "Soil Saturation", value: wx ? `${soil}` : "…", unit: "%", pct: soil, tone: riskTone(soil - 20) },
-    { label: "Drainage Capacity", value: wx ? `${drain}` : "…", unit: "% left", pct: drain, tone: riskTone(100 - drain) },
-    { label: "AI Risk Index", value: wx ? (maxRisk >= 70 ? "High" : maxRisk >= 40 ? "Moderate" : "Low") : "…", unit: `${(maxRisk / 10).toFixed(1)}/10`, pct: maxRisk, tone: riskTone(maxRisk) },
+    {
+      label: "Current Rainfall",
+      value: wx ? `${rain}` : "…",
+      unit: "mm/hr",
+      pct: Math.min(100, rain * 5),
+      tone: riskTone(rain * 8),
+      info: "Live rainfall in millimetres per hour comes straight from Google's weather feed for your city. The bar and colour show how far that rate is from the level where city drains start to fall behind.",
+    },
+    {
+      label: "Soil Saturation",
+      value: wx ? `${soil}` : "…",
+      unit: "%",
+      pct: soil,
+      tone: riskTone(soil - 20),
+      info: "An estimate of how soaked the ground already is, combining current humidity with the rain that has fallen. Wetter soil soaks up less new rain, so more water stays on the streets.",
+    },
+    {
+      label: "Drainage Capacity",
+      value: wx ? `${drain}` : "…",
+      unit: "% left",
+      pct: drain,
+      tone: riskTone(100 - drain),
+      info: "How much of the city's drain network is still free, worked out by subtracting today's rainfall load from normal capacity. As it drops, water sits on roads longer before draining away.",
+    },
+    {
+      label: "AI Risk Index",
+      value: wx ? (maxRisk >= 70 ? "High" : maxRisk >= 40 ? "Moderate" : "Low") : "…",
+      unit: `${(maxRisk / 10).toFixed(1)}/10`,
+      pct: maxRisk,
+      tone: riskTone(maxRisk),
+      info: "For each of the next six hours the model takes Google's rain probability and expected rainfall, adds this city's flood tendency, and turns it into a 0–100 waterlogging score. The highest hourly score becomes the index.",
+    },
   ];
 
   const hoursMm = slots.reduce((a, b) => a + b.mm, 0);
@@ -216,7 +245,15 @@ function Dashboard() {
       </header>
       <section className="relative grid grid-cols-2 gap-4 px-4 pb-6 lg:grid-cols-4">
           {metrics.map((m) => (
-            <div key={m.label} className="glass rounded-xl p-4">
+            <div key={m.label} className="glass relative rounded-xl p-4">
+              <button
+                type="button"
+                aria-label={`How ${m.label} is predicted`}
+                onClick={() => setInfoOpen(infoOpen === m.label ? null : m.label)}
+                className="absolute right-3 top-3 z-10 grid h-5 w-5 place-items-center rounded-full border border-border text-[10px] font-bold italic text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+              >
+                i
+              </button>
               <p className="text-xs uppercase tracking-wider text-muted-foreground">{m.label}</p>
               <p className={`mt-2 font-display text-2xl font-bold md:text-3xl ${toneText[m.tone]}`}>
                 {m.value} <span className="text-sm font-normal text-muted-foreground">{m.unit}</span>
@@ -224,6 +261,11 @@ function Dashboard() {
               <div className="mt-3 h-1.5 rounded-full bg-muted">
                 <div className={`h-full rounded-full transition-all duration-700 ${toneBg[m.tone]}`} style={{ width: `${m.pct}%` }} />
               </div>
+              {infoOpen === m.label && (
+                <div className="mt-3 rounded-lg bg-secondary/80 p-3 text-xs leading-relaxed text-muted-foreground">
+                  {m.info}
+                </div>
+              )}
             </div>
           ))}
       </section>
