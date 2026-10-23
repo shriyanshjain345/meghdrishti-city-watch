@@ -204,7 +204,7 @@ function Dashboard() {
           <div className="grid gap-6 md:grid-cols-2">
             {[
               { title: "👨‍👩‍👧 For Citizens", tips: ["Keep an emergency kit: torch, power bank, medicines, documents in a waterproof bag.", "Never walk or drive through flooded roads — 15 cm of moving water can knock you down.", "Switch off main electricity if water enters your home.", "Move to higher floors; avoid basements and underpasses.", "Save helplines: 112 (Emergency), 1916 (BMC), 1078 (NDMA)."] },
-              { title: "🏛 For Local Authorities", tips: ["Pre-deploy dewatering pumps at known flood hotspots.", "Clear stormwater drains and nullahs before peak rainfall.", "Issue SMS/loudspeaker alerts to low-lying wards early.", "Activate relief camps with food, water and medical teams.", "Coordinate with NDRF, traffic police and railways for closures."] },
+              { title: "🏛 For Local Authorities", tips: ["Pre-deploy dewatering pumps at known flood hotspots.", "Clear stormwater drains and nullahs before peak rainfall.", "Send SMS/loudspeaker messages to low-lying wards early.", "Activate relief camps with food, water and medical teams.", "Coordinate with NDRF, traffic police and railways for closures."] },
             ].map((g) => (
               <div key={g.title}>
                 <h3 className="mb-3 font-semibold text-primary">{g.title}</h3>
