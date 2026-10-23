@@ -1,18 +1,20 @@
 import { createFileRoute, ClientOnly } from "@tanstack/react-router";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { Search, MapPin } from "lucide-react";
 import type { Level, Zone, PointInfo } from "@/components/FloodMap";
 import { getWeather, type Weather } from "@/lib/weather.functions";
 import ActionGuide from "@/components/ActionGuide";
 import WeatherFx from "@/components/WeatherFx";
 import TrendChart from "@/components/TrendChart";
+import HistorySection from "@/components/history/HistorySection";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "MeghDrishti — Rainfall & Urban Flood Risk Dashboard" },
-      { name: "description", content: "Live simulated rainfall, drainage and AI flood-risk tracking for Indian cities." },
-      { property: "og:title", content: "MeghDrishti" },
-      { property: "og:description", content: "Track heavy rainfall and urban flood risks with AI forecasts." },
+      { name: "description", content: "Live rainfall, 24-hour flood-risk forecasts for 11 Indian cities and a sourced history of Mumbai floods since 2000." },
+      { property: "og:title", content: "MeghDrishti — Urban Flood Intelligence for India" },
+      { property: "og:description", content: "Live rainfall and flood-risk forecasts plus historical Mumbai rainfall and documented flood events." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -334,7 +336,7 @@ function Dashboard() {
     <div className="min-h-screen">
       <div className="relative mx-auto max-w-7xl">
       {wx && <WeatherFx cond={wx.cond} mm={wx.mmNow} />}
-      <header className="relative mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-6">
+      <header className="relative z-30 mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-6">
         <div>
           <h1 className="text-2xl font-bold md:text-3xl">
             Megh<span className="text-primary">Drishti</span>
@@ -342,15 +344,7 @@ function Dashboard() {
           <p className="text-sm text-muted-foreground">Urban Flood Intelligence for India • Live weather</p>
         </div>
         <div className="glass flex items-center gap-4 rounded-xl px-4 py-3">
-          <select
-            value={city}
-            onChange={(e) => pickCity(e.target.value as City)}
-            className="rounded-md bg-secondary px-2 py-1 text-sm"
-          >
-            {Object.keys(CITIES).map((c) => (
-              <option key={c}>{c}</option>
-            ))}
-          </select>
+          <CitySearch value={city} options={Object.keys(CITIES)} onPick={(c) => pickCity(c as City)} />
           <div className="text-3xl font-bold font-display">{wx ? wx.temp : CITIES[city].temp}°C</div>
           <div className="text-sm">
             <div className="flex items-center gap-1">{wx && <img src={wx.icon} alt="" className="h-5 w-5" />}{wx ? wx.cond : "Loading…"}</div>
@@ -479,11 +473,68 @@ function Dashboard() {
           </div>
         </section>
 
-        <section className="glass rounded-xl p-5">
+        <section id="guide" className="glass scroll-mt-6 rounded-xl p-5">
           <h2 className="mb-4 text-lg font-bold">Emergency Preparedness & Action Guide</h2>
           <ActionGuide />
         </section>
+
+        <HistorySection />
       </main>
+    </div>
+  );
+}
+
+function CitySearch({ value, options, onPick }: { value: string; options: string[]; onPick: (c: string) => void }) {
+  const [q, setQ] = useState("");
+  const [open, setOpen] = useState(false);
+  const [hi, setHi] = useState(0);
+  const list = options.filter((c) => c.toLowerCase().includes(q.trim().toLowerCase()));
+  const choose = (c: string) => {
+    onPick(c);
+    setQ("");
+    setOpen(false);
+  };
+  return (
+    <div className="relative">
+      <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-primary" />
+      <input
+        value={q}
+        placeholder={value}
+        aria-label="Search city"
+        role="combobox"
+        aria-expanded={open}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 120)}
+        onChange={(e) => { setQ(e.target.value); setOpen(true); setHi(0); }}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowDown") { e.preventDefault(); setHi((h) => Math.min(list.length - 1, h + 1)); }
+          else if (e.key === "ArrowUp") { e.preventDefault(); setHi((h) => Math.max(0, h - 1)); }
+          else if (e.key === "Enter" && list[hi]) choose(list[hi]!);
+          else if (e.key === "Escape") { setOpen(false); (e.target as HTMLInputElement).blur(); }
+        }}
+        className="w-40 rounded-lg border border-border bg-secondary py-1.5 pl-8 pr-2 text-sm placeholder:text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/40 sm:w-48"
+      />
+      {open && (
+        <ul role="listbox" className="absolute left-0 z-50 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-border bg-card py-1 shadow-xl">
+          {list.length ? (
+            list.map((c, i) => (
+              <li key={c} role="option" aria-selected={c === value}>
+                <button
+                  type="button"
+                  onMouseDown={(e) => { e.preventDefault(); choose(c); }}
+                  onMouseEnter={() => setHi(i)}
+                  className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm ${i === hi ? "bg-accent" : ""} ${c === value ? "text-primary" : ""}`}
+                >
+                  <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                  {c}
+                </button>
+              </li>
+            ))
+          ) : (
+            <li className="px-3 py-2 text-sm text-muted-foreground">No city matches “{q}”</li>
+          )}
+        </ul>
+      )}
     </div>
   );
 }
