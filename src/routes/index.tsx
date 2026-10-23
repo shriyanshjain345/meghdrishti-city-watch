@@ -202,7 +202,7 @@ function Dashboard() {
             </div>
             <ClientOnly fallback={<div className="aspect-[4/3] w-full rounded-lg bg-secondary" />}>
               <Suspense fallback={<div className="aspect-[4/3] w-full rounded-lg bg-secondary" />}>
-                <FloodMap center={CITY_MAP[city]!.center} zones={CITY_MAP[city]!.zones} onPick={setSel} />
+                <FloodMap city={city} center={CITY_MAP[city]!.center} zones={CITY_MAP[city]!.zones} onPick={setSel} />
               </Suspense>
             </ClientOnly>
             <div className={`mt-4 rounded-lg border p-4 ${levelCls[sel.level]}`}>

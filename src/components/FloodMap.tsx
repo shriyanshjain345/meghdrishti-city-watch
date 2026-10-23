@@ -37,7 +37,10 @@ function dist(aLat: number, aLng: number, bLat: number, bLng: number) {
   return 2 * R * Math.asin(Math.sqrt(x));
 }
 
-type Blob = { lat: number; lng: number; r: number; level: Level };
+import OUTLINES from "./city-outlines.json";
+
+type LL = { lat: number; lng: number };
+type Blob = { path: LL[]; level: Level };
 const DESC: Record<Level, { water: string; detail: string }> = {
   safe: { water: "0–3 cm", detail: "Clear roads and area." },
   warn: { water: "15–30 cm", detail: "Underpass slow to drain." },
@@ -45,42 +48,62 @@ const DESC: Record<Level, { water: string; detail: string }> = {
 };
 const RANK: Record<Level, number> = { safe: 1, warn: 2, critical: 3 };
 
-function ring(z: Zone, count: number, spread: number, rr: number, level: Level, out: Blob[]) {
-  const mPerLat = 111000, mPerLng = 111000 * Math.cos((z.lat * Math.PI) / 180);
-  for (let i = 0; i < count; i++) {
-    const a = (i / count) * Math.PI * 2 + (z.lat * 7) % 1;
-    out.push({ lat: z.lat + (Math.sin(a) * spread) / mPerLat, lng: z.lng + (Math.cos(a) * spread) / mPerLng, r: rr, level });
-  }
+function seeded(n: number) {
+  let x = Math.sin(n) * 10000;
+  return () => { x = Math.sin(x) * 10000; return x - Math.floor(x); };
 }
 
-export function buildBlobs(center: { lat: number; lng: number }, zones: Zone[]): Blob[] {
+// irregular, smooth-ish blob around a point
+function blob(lat: number, lng: number, r: number, seed: number): LL[] {
+  const rnd = seeded(seed);
+  const n = 18, mLat = 111000, mLng = 111000 * Math.cos((lat * Math.PI) / 180);
+  const k = Array.from({ length: n }, () => 0.6 + rnd() * 0.8);
+  return k.map((_, i) => {
+    const rr = r * (k[i]! * 0.5 + (k[(i + 1) % n]! + k[(i + n - 1) % n]!) * 0.25);
+    const a = (i / n) * Math.PI * 2;
+    return { lat: lat + (Math.sin(a) * rr) / mLat, lng: lng + (Math.cos(a) * rr * 1.25) / mLng };
+  });
+}
+
+function inPoly(lat: number, lng: number, path: LL[]) {
+  let inside = false;
+  for (let i = 0, j = path.length - 1; i < path.length; j = i++) {
+    const a = path[i]!, b = path[j]!;
+    if (a.lat > lat !== b.lat > lat && lng < ((b.lng - a.lng) * (lat - a.lat)) / (b.lat - a.lat) + a.lng) inside = !inside;
+  }
+  return inside;
+}
+
+export function outlineOf(city: string): LL[][] {
+  const rings = (OUTLINES as Record<string, number[][][]>)[city] ?? [];
+  return rings.map((r) => r.map(([lat, lng]) => ({ lat: lat!, lng: lng! })));
+}
+
+export function buildBlobs(zones: Zone[]): Blob[] {
   const out: Blob[] = [];
-  // green base: overlapping circles over the whole city
-  for (let la = -0.15; la <= 0.15; la += 0.035)
-    for (let ln = -0.17; ln <= 0.17; ln += 0.035)
-      out.push({ lat: center.lat + la, lng: center.lng + ln, r: 2800, level: "safe" });
-  for (const z of zones) {
-    if (z.level === "safe") continue;
-    out.push({ lat: z.lat, lng: z.lng, r: z.r * 1.5, level: "warn" });
-    ring(z, 6, z.r * 1.4, z.r * 0.9, "warn", out);
-  }
-  for (const z of zones) {
-    if (z.level !== "critical") continue;
-    out.push({ lat: z.lat, lng: z.lng, r: z.r * 0.8, level: "critical" });
-    ring(z, 4, z.r * 0.6, z.r * 0.45, "critical", out);
-  }
+  zones.forEach((z, i) => {
+    if (z.level === "safe") return;
+    out.push({ level: "warn", path: blob(z.lat, z.lng, z.r * 1.9, i * 13 + 1) });
+  });
+  zones.forEach((z, i) => {
+    if (z.level !== "critical") return;
+    out.push({ level: "critical", path: blob(z.lat, z.lng, z.r * 0.9, i * 29 + 7) });
+  });
   return out;
 }
 
-export function infoAt(zones: Zone[], lat: number, lng: number, blobs: Blob[]): PointInfo {
-  let level: Level = "safe";
-  for (const b of blobs) if (RANK[b.level] > RANK[level] && dist(b.lat, b.lng, lat, lng) <= b.r) level = b.level;
+export function infoAt(zones: Zone[], lat: number, lng: number, blobs: Blob[], outline: LL[][]): PointInfo {
   let near: Zone | undefined, nd = Infinity;
   for (const z of zones) { const d = dist(z.lat, z.lng, lat, lng); if (d < nd) { nd = d; near = z; } }
-  return { name: near ? `Near ${near.name}` : "Selected location", level, ...DESC[level], lat, lng };
+  const name = near ? `Near ${near.name}` : "Selected location";
+  let level: Level = "safe";
+  for (const b of blobs) if (RANK[b.level] > RANK[level] && inPoly(lat, lng, b.path)) level = b.level;
+  if (level === "safe" && !outline.some((r) => inPoly(lat, lng, r)))
+    return { name: "Outside city limits", level: "safe", water: "—", detail: "Not covered by this city's report.", lat, lng };
+  return { name, level, ...DESC[level], lat, lng };
 }
 
-export default function FloodMap({ center, zones, onPick }: { center: { lat: number; lng: number }; zones: Zone[]; onPick: (p: PointInfo) => void }) {
+export default function FloodMap({ city, center, zones, onPick }: { city: string; center: { lat: number; lng: number }; zones: Zone[]; onPick: (p: PointInfo) => void }) {
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<any>(null);
   const shapes = useRef<any[]>([]);
@@ -90,6 +113,7 @@ export default function FloodMap({ center, zones, onPick }: { center: { lat: num
   const zonesRef = useRef(zones);
   zonesRef.current = zones;
   const blobsRef = useRef<Blob[]>([]);
+  const outlineRef = useRef<LL[][]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
 
@@ -112,7 +136,7 @@ export default function FloodMap({ center, zones, onPick }: { center: { lat: num
         const handle = (lat: number, lng: number) => {
           if (marker.current) marker.current.setMap(null);
           marker.current = new g.maps.Marker({ position: { lat, lng }, map: map.current });
-          pickRef.current(infoAt(zonesRef.current, lat, lng, blobsRef.current));
+          pickRef.current(infoAt(zonesRef.current, lat, lng, blobsRef.current, outlineRef.current));
         };
         map.current.addListener("click", (e: any) => handle(e.latLng.lat(), e.latLng.lng()));
         (map.current as any).__handle = handle;
@@ -128,20 +152,33 @@ export default function FloodMap({ center, zones, onPick }: { center: { lat: num
     if (marker.current) marker.current.setMap(null);
     map.current.setCenter(center);
     map.current.setZoom(11);
-    const blobs = buildBlobs(center, zones);
+    const outline = outlineOf(city);
+    const blobs = buildBlobs(zones);
     blobsRef.current = blobs;
-    const cells = blobs.map((b) => {
-      const c = new g.maps.Circle({
-        map: map.current, center: { lat: b.lat, lng: b.lng }, radius: b.r,
-        strokeColor: COLORS[b.level], strokeOpacity: 0.5, strokeWeight: 1,
-        fillColor: COLORS[b.level], fillOpacity: b.level === "safe" ? 0.12 : b.level === "warn" ? 0.3 : 0.45,
-        zIndex: RANK[b.level],
-      });
-      c.addListener("click", (e: any) => map.current.__handle(e.latLng.lat(), e.latLng.lng()));
-      return c;
+    outlineRef.current = outline;
+    const click = (e: any) => map.current.__handle(e.latLng.lat(), e.latLng.lng());
+    const cells: any[] = [];
+    const base = new g.maps.Polygon({
+      map: map.current, paths: outline, strokeColor: COLORS.safe, strokeWeight: 2.5, strokeOpacity: 0.95,
+      fillColor: COLORS.safe, fillOpacity: 0.16, zIndex: 1,
     });
+    base.addListener("click", click);
+    cells.push(base);
+    for (const b of blobs) {
+      const p = new g.maps.Polygon({
+        map: map.current, paths: b.path, strokeColor: COLORS[b.level], strokeWeight: 2, strokeOpacity: 0.95,
+        fillColor: COLORS[b.level], fillOpacity: b.level === "warn" ? 0.32 : 0.5, zIndex: RANK[b.level],
+      });
+      p.addListener("click", click);
+      cells.push(p);
+    }
+    if (outline.length) {
+      const bounds = new g.maps.LatLngBounds();
+      outline.flat().forEach((pt) => bounds.extend(pt));
+      map.current.fitBounds(bounds, 10);
+    }
     shapes.current = cells;
-  }, [ready, center.lat, center.lng, zones]);
+  }, [ready, city, center.lat, center.lng, zones]);
 
   return (
     <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-secondary">
