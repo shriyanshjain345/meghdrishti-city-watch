@@ -174,13 +174,13 @@ export function RainTrendChart({
           );
         })}
         <motion.path key={`clim-${year}`} d={path(clim)} fill="none" strokeWidth={2.5} className="stroke-primary" style={{ filter: "drop-shadow(0 0 4px var(--primary))" }} initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.4, ease: "easeInOut" }} />
-        {cmp && <motion.path key={`cmp-${compare}`} d={path(cmp)} fill="none" strokeWidth={2} strokeDasharray="5 4" className="stroke-warn" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.2 }} />}
+        {cmp && <motion.path key={`cmp-${compare}`} d={path(cmp)} fill="none" strokeWidth={2} className="stroke-warn" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.2 }} />}
       </svg>
       <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
         <span className="flex items-center gap-1"><span className="h-2 w-3 rounded bg-safe" />{year} total</span>
         <span className="flex items-center gap-1"><span className="h-2 w-3 rounded bg-warn" />Month above 150% of average</span>
         <span className="flex items-center gap-1"><span className="h-0.5 w-4 bg-primary" />Average of complete years</span>
-        {cmp && <span className="flex items-center gap-1"><span className="h-0.5 w-4 border-t-2 border-dashed border-warn" />{compare}</span>}
+        {cmp && <span className="flex items-center gap-1"><span className="h-0.5 w-4 bg-warn" />{compare}</span>}
       </div>
     </div>
   );
