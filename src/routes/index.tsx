@@ -258,7 +258,7 @@ function Dashboard() {
                   >
                     <span className="text-xs font-semibold tabular-nums">{f.t}</span>
                     {f.icon.length > 4 ? <img src={f.icon} alt={f.cond} className="h-8 w-8" /> : <span className="text-2xl">{rainEmoji(f.rainChance)}</span>}
-                    <span className="text-xs text-info">💧 {f.rainChance}%</span>
+                    <span className="text-xs text-primary">💧 {f.rainChance}%</span>
                     <span className={`rounded-full px-1.5 text-[11px] font-bold ${toneBg[tone]}/20 ${toneText[tone]}`}>🌊 {f.risk}%</span>
                   </button>
                 );

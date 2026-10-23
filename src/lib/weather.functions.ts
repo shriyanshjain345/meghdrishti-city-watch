@@ -16,8 +16,8 @@ const GATEWAY = "https://connector-gateway.lovable.dev/google_maps/weather/v1";
 async function call(path: string) {
   const r = await fetch(`${GATEWAY}/${path}`, {
     headers: {
-      Authorization: `Bearer ${process.env.LOVABLE_API_KEY}`,
-      "X-Connection-Api-Key": process.env.GOOGLE_MAPS_API_KEY!,
+      Authorization: `Bearer ${process.env['LOVABLE_API_KEY']}`,
+      "X-Connection-Api-Key": process.env['GOOGLE_MAPS_API_KEY']!,
     },
   });
   if (!r.ok) throw new Error(`Weather request failed [${r.status}]: ${await r.text()}`);
