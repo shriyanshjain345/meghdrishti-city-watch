@@ -1,3 +1,4 @@
+import CameraCalculator from "@/components/CameraCalculator";
 import { createFileRoute, ClientOnly } from "@tanstack/react-router";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Search, MapPin } from "lucide-react";
@@ -355,7 +356,7 @@ function Dashboard() {
         </div>
       </header>
       <section className="relative px-4 pb-6">
-        <div className="flex items-start justify-center pt-3">
+        <div className="flex flex-wrap items-start justify-center gap-y-4 pt-3">
           {metrics.map((m, i) => (
             <div
               key={m.label}
