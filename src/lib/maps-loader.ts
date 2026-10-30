@@ -23,11 +23,13 @@ export function loadMaps() {
   return loader;
 }
 
+// Light, low-noise map style matching the bright theme (name kept for existing imports).
 export const DARK_MAP_STYLE = [
-  { elementType: "geometry", stylers: [{ color: "#1d2c3a" }] },
-  { elementType: "labels.text.fill", stylers: [{ color: "#9fb3c8" }] },
-  { elementType: "labels.text.stroke", stylers: [{ color: "#0f1a24" }] },
-  { featureType: "water", elementType: "geometry", stylers: [{ color: "#0b1622" }] },
-  { featureType: "road", elementType: "geometry", stylers: [{ color: "#2b3f52" }] },
+  { elementType: "geometry", stylers: [{ color: "#f4f7fb" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#4a5b70" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#ffffff" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#cfe6f5" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#ffffff" }] },
+  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#dde4ee" }] },
   { featureType: "poi", stylers: [{ visibility: "off" }] },
 ];

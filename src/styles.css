@@ -30,21 +30,26 @@
 
 :root {
   --radius: 0.875rem;
-  --background: oklch(0.17 0.04 255);
-  --foreground: oklch(0.95 0.01 220);
-  --card: oklch(0.22 0.045 252);
-  --card-foreground: oklch(0.95 0.01 220);
-  --primary: oklch(0.76 0.13 185);
-  --primary-foreground: oklch(0.17 0.04 255);
-  --secondary: oklch(0.27 0.05 250);
-  --muted: oklch(0.26 0.045 250);
-  --muted-foreground: oklch(0.68 0.03 230);
-  --accent: oklch(0.32 0.07 195);
-  --destructive: oklch(0.65 0.22 25);
-  --border: oklch(0.34 0.05 230);
-  --safe: oklch(0.7 0.15 245);
-  --warn: oklch(0.8 0.16 75);
-  --critical: oklch(0.65 0.22 25);
+  --background: oklch(0.985 0.004 240);
+  --foreground: oklch(0.22 0.04 255);
+  --card: oklch(0.965 0.012 235);
+  --card-foreground: oklch(0.22 0.04 255);
+  --primary: oklch(0.62 0.14 215);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.94 0.016 235);
+  --muted: oklch(0.93 0.014 235);
+  --muted-foreground: oklch(0.48 0.03 245);
+  --accent: oklch(0.9 0.05 210);
+  --destructive: oklch(0.58 0.22 25);
+  --border: oklch(0.88 0.02 235);
+  --safe: oklch(0.58 0.16 250);
+  --warn: oklch(0.7 0.16 65);
+  --critical: oklch(0.58 0.22 25);
+  --shadow-soft: 0 8px 24px -12px oklch(0.4 0.06 245 / 0.25);
+}
+
+@layer base {
+  .glass, .glass-hi, .neon { box-shadow: var(--shadow-soft); }
 }
 
 @layer base {
