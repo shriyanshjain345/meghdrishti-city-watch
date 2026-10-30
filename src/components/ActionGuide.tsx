@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import kitImg from "@/assets/guide-kit.jpg";
 import duringImg from "@/assets/guide-during.jpg";
 import dontImg from "@/assets/guide-dont.jpg";
@@ -47,66 +48,100 @@ const STAGES: Stage[] = [
   },
 ];
 
+const spring = { type: "spring" as const, stiffness: 260, damping: 24 };
+
 export default function ActionGuide() {
   const [stageId, setStageId] = useState("before");
-  const [itemIdx, setItemIdx] = useState(0);
+  const [itemIdx, setItemIdx] = useState<number | null>(null);
   const stage = STAGES.find((s) => s.id === stageId)!;
-  const item = stage.items[itemIdx] ?? stage.items[0]!;
+  const item = itemIdx === null ? null : stage.items[itemIdx] ?? null;
 
   return (
-    <div className="space-y-5">
-      {/* Flowchart */}
-      <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
-        {STAGES.map((s, i) => (
-          <div key={s.id} className="flex flex-1 flex-col items-center gap-2 sm:flex-row">
-            <button
-              onClick={() => { setStageId(s.id); setItemIdx(0); }}
-              className={`w-full flex-1 rounded-xl border-2 p-3 text-left transition hover:scale-[1.03] ${
-                s.id === stageId ? `${s.tone} bg-accent` : "border-border bg-secondary text-foreground"
-              }`}
-            >
-              <div className="text-2xl">{s.icon}</div>
-              <div className="text-sm font-bold">{s.title}</div>
-              <div className="text-xs text-muted-foreground">{s.sub}</div>
+    <div className="space-y-6">
+      {/* Top deck: stage piles */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        {STAGES.map((s, i) => {
+          const on = s.id === stageId;
+          return (
+            <button key={s.id} onClick={() => { setStageId(s.id); setItemIdx(null); }} className="relative h-36 text-left" aria-pressed={on}>
+              {[2, 1].map((d) => (
+                <span key={d} aria-hidden className="absolute inset-0 rounded-2xl border border-border bg-card" style={{ transform: `translate(${d * 4}px, ${d * 4}px) rotate(${d * (i % 2 ? -1.5 : 1.5)}deg)` }} />
+              ))}
+              <motion.div
+                layout
+                whileHover={{ y: -6, rotate: i % 2 ? 1 : -1 }}
+                whileTap={{ scale: 0.96 }}
+                animate={{ y: on ? -10 : 0, scale: on ? 1.03 : 1 }}
+                transition={spring}
+                className={`relative flex h-full flex-col justify-between rounded-2xl border-2 bg-background p-3 shadow-lg ${on ? s.tone : "border-border text-foreground"}`}
+              >
+                <div className="flex items-start justify-between">
+                  <span className="text-3xl">{s.icon}</span>
+                  <span className="text-xs font-bold text-muted-foreground">{i + 1}/4</span>
+                </div>
+                <div>
+                  <div className="font-display text-base font-bold">{s.title}</div>
+                  <div className="text-xs text-muted-foreground">{s.sub} · {s.items.length} cards</div>
+                </div>
+              </motion.div>
             </button>
-            {i < STAGES.length - 1 && <span className="text-xl text-muted-foreground sm:rotate-0 rotate-90">➜</span>}
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      {/* Stage detail */}
-      <div className="grid gap-5 md:grid-cols-2">
-        <div className="relative overflow-hidden rounded-xl">
-          <img key={stage.id} src={stage.img} alt={stage.title} loading="lazy" width={992} height={672} className="live-img h-full w-full object-cover" />
-          <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">{Array.from({ length: 30 }, (_, i) => <span key={i} className="fx-drop absolute -top-10 w-px bg-foreground/40" style={{ left: `${(i * 37) % 100}%`, height: `${12 + (i % 4) * 6}px`, animationDuration: `${0.7 + (i % 5) * 0.15}s`, animationDelay: `-${(i % 9) * 0.2}s` }} />)}</div>
-          <span className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-background/70 px-2 py-0.5 text-xs font-semibold"><span className="h-2 w-2 animate-pulse rounded-full bg-critical" />LIVE</span>
-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-background to-transparent p-4">
-            <p className={`text-lg font-bold ${stage.tone.split(" ")[1]}`}>{stage.icon} {stage.title}</p>
-          </div>
-        </div>
+      {/* Dealt hand */}
+      <div className="grid gap-5 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+        <AnimatePresence mode="wait">
+          <motion.div key={stage.id} initial={{ opacity: 0, rotateY: -25, x: -40 }} animate={{ opacity: 1, rotateY: 0, x: 0 }} exit={{ opacity: 0, rotateY: 25, x: 40 }} transition={spring} className="relative overflow-hidden rounded-2xl shadow-lg">
+            <img src={stage.img} alt={stage.title} loading="lazy" width={992} height={672} className="live-img h-full max-h-80 w-full object-cover" />
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-background via-background/80 to-transparent p-4">
+              <p className={`font-display text-lg font-bold ${stage.tone.split(" ")[1]}`}>{stage.icon} {stage.title}</p>
+              <p className="text-xs text-muted-foreground">Tap a card to flip it open</p>
+            </div>
+          </motion.div>
+        </AnimatePresence>
 
         <div>
-          {/* mini flow of steps */}
-          <div className="relative space-y-2 pl-6">
-            <div className="absolute left-2 top-2 bottom-2 w-0.5 bg-border" />
-            {stage.items.map((it, i) => (
-              <button
-                key={it.label}
-                onClick={() => setItemIdx(i)}
-                className={`relative flex w-full items-center gap-3 rounded-lg p-2.5 text-left text-sm transition ${
-                  i === itemIdx ? "bg-accent font-semibold" : "bg-secondary hover:bg-accent/60"
-                }`}
-              >
-                <span className={`absolute -left-[22px] h-3 w-3 rounded-full border-2 ${i === itemIdx ? stage.tone + " bg-current" : "border-border bg-background"}`} />
-                <span className="text-xl">{it.icon}</span>
-                {it.label}
-              </button>
-            ))}
-          </div>
-          <div className={`mt-4 rounded-xl border-l-4 bg-secondary p-4 ${stage.tone.split(" ")[0]}`}>
-            <p className="font-semibold">{item.icon} {item.label}</p>
-            <p className="mt-1 text-sm text-foreground/80">{item.desc}</p>
-          </div>
+          <AnimatePresence mode="popLayout">
+            <motion.div key={stage.id} className="flex flex-wrap gap-3">
+              {stage.items.map((it, i) => {
+                const on = i === itemIdx;
+                return (
+                  <motion.button
+                    key={it.label}
+                    layout
+                    initial={{ opacity: 0, y: -60, rotate: -12, x: -30 }}
+                    animate={{ opacity: 1, y: on ? -8 : 0, rotate: on ? 0 : (i - (stage.items.length - 1) / 2) * 3, x: 0 }}
+                    exit={{ opacity: 0, y: 40 }}
+                    transition={{ ...spring, delay: i * 0.07 }}
+                    whileHover={{ y: -8, rotate: 0 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setItemIdx(on ? null : i)}
+                    className={`flex w-[calc(50%-0.4rem)] flex-col items-start gap-1 rounded-xl border-2 bg-background p-3 text-left shadow-md sm:w-[7.5rem] ${on ? stage.tone : "border-border"}`}
+                  >
+                    <span className="text-2xl">{it.icon}</span>
+                    <span className="text-xs font-semibold leading-tight text-foreground">{it.label}</span>
+                  </motion.button>
+                );
+              })}
+            </motion.div>
+          </AnimatePresence>
+
+          <AnimatePresence mode="wait">
+            {item ? (
+              <motion.div key={stage.id + item.label} initial={{ opacity: 0, y: 24, rotateX: -30 }} animate={{ opacity: 1, y: 0, rotateX: 0 }} exit={{ opacity: 0, y: -12 }} transition={spring} className={`mt-5 rounded-2xl border-l-4 bg-card p-4 shadow-lg ${stage.tone.split(" ")[0]}`}>
+                <p className="font-display font-bold">{item.icon} {item.label}</p>
+                <p className="mt-1 text-sm text-foreground/80">{item.desc}</p>
+                {itemIdx! < stage.items.length - 1 && (
+                  <button onClick={() => setItemIdx(itemIdx! + 1)} className="mt-3 text-xs font-semibold text-primary hover:underline">Next card →</button>
+                )}
+              </motion.div>
+            ) : (
+              <motion.p key="hint" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mt-5 rounded-2xl border border-dashed border-border p-4 text-sm text-muted-foreground">
+                👆 Pick a card from the hand above to read what to do.
+              </motion.p>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     </div>
