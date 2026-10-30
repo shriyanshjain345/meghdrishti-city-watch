@@ -225,38 +225,6 @@ export default function HistorySection() {
         </div>
       </Reveal>
 
-      <Reveal className="glass neon rounded-2xl p-4">
-        <h3 className="mb-4 font-bold">From history to preparedness</h3>
-        <div className="flex flex-col items-stretch gap-2 md:flex-row md:items-center">
-          {FLOW.map((f, i) => (
-            <div key={f.title} className="flex flex-1 flex-col items-center gap-2 md:flex-row">
-              <motion.button
-                type="button"
-                onClick={() => setFlow(i)}
-                whileHover={{ scale: 1.04 }}
-                whileTap={{ scale: 0.97 }}
-                className={`relative w-full flex-1 rounded-xl border p-3 text-left transition-colors ${flow === i ? "border-primary bg-primary/15 neon" : "border-border bg-secondary/60"}`}
-              >
-                <span className="text-2xl">{f.icon}</span>
-                <p className={`text-sm font-bold ${flow === i ? "text-primary" : ""}`}>{f.title}</p>
-                <span className="absolute right-2 top-2 text-[10px] text-muted-foreground">0{i + 1}</span>
-              </motion.button>
-              {i < FLOW.length - 1 && (
-                <svg viewBox="0 0 40 12" className="h-3 w-10 shrink-0 rotate-90 md:rotate-0" aria-hidden>
-                  <line x1="0" y1="6" x2="32" y2="6" className="flow-dash stroke-primary" strokeWidth="2" strokeDasharray="6 6" />
-                  <path d="M32,1 L40,6 L32,11 Z" className="fill-primary" />
-                </svg>
-              )}
-            </div>
-          ))}
-        </div>
-        <AnimatePresence mode="wait">
-          <motion.p key={flow} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} className="mt-4 rounded-xl border-l-4 border-primary bg-secondary/60 p-3 text-sm">
-            {FLOW[flow]!.body}
-            {flow === 3 && <a href="#guide" className="ml-2 text-primary underline-offset-2 hover:underline">Open the Action Guide ↑</a>}
-          </motion.p>
-        </AnimatePresence>
-      </Reveal>
 
       <Reveal className="glass neon rounded-2xl p-4">
         <h3 className="font-bold">Model validation</h3>

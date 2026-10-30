@@ -355,27 +355,32 @@ function Dashboard() {
         </div>
       </header>
       <section className="relative px-4 pb-6">
-        <Carousel label="metrics">
-          {metrics.map((m) => (
-            <div key={m.label} className="relative shrink-0 basis-1/2 snap-start px-3 py-2 lg:basis-1/4 border-l border-border/50 first:border-l-0">
+        <div className="flex items-start justify-center pt-3">
+          {metrics.map((m, i) => (
+            <div
+              key={m.label}
+              style={{ zIndex: infoOpen === m.label ? 50 : i }}
+              className={`relative w-36 shrink-0 rounded-2xl border border-border bg-card p-3 shadow-lg transition-all duration-300 ease-out hover:z-[60]! hover:-translate-y-2 hover:scale-110 hover:shadow-2xl sm:w-44 ${i > 0 ? "-ml-[4.5rem] sm:-ml-[5.5rem]" : ""}`}
+            >
               <button
                 type="button"
                 aria-label={`How ${m.label} is predicted`}
                 onClick={() => setInfoOpen(infoOpen === m.label ? null : m.label)}
-                className="absolute right-3 top-2 z-10 grid h-5 w-5 place-items-center rounded-full border border-border text-[10px] font-bold italic text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+                className="absolute right-2 top-2 z-10 grid h-5 w-5 place-items-center rounded-full border border-border bg-background text-[10px] font-bold italic text-muted-foreground transition-colors hover:border-primary hover:text-primary"
               >
                 i
               </button>
-              <p className="pr-6 text-xs uppercase tracking-wider text-muted-foreground">{m.label}</p>
-              <p className={`mt-2 font-display text-2xl font-bold md:text-3xl ${toneText[m.tone]}`}>
-                {m.value} <span className="text-sm font-normal text-muted-foreground">{m.unit}</span>
+              <p className="pr-6 text-[10px] uppercase tracking-wider text-muted-foreground">{m.label}</p>
+              <p className={`mt-2 font-display text-xl font-bold sm:text-2xl ${toneText[m.tone]}`}>
+                {m.value} <span className="text-xs font-normal text-muted-foreground">{m.unit}</span>
               </p>
               {infoOpen === m.label && (
                 <p className="mt-2 text-xs leading-relaxed text-muted-foreground animate-in fade-in slide-in-from-top-1">{m.info}</p>
               )}
             </div>
           ))}
-        </Carousel>
+        </div>
+        <div className="mt-6 flex justify-center"><CameraCalculator /></div>
       </section>
       </div>
       <main className="mx-auto max-w-7xl space-y-6 px-4 pb-12">
