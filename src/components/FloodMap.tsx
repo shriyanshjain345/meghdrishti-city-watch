@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { loadMaps, DARK_MAP_STYLE } from "@/lib/maps-loader";
+import { findNearestSafeShelterRoute, pointInPolygon, type ShelterRouteResult } from "@/lib/safe-route";
+import { sheltersForCity } from "@/lib/shelters";
 
 export type Level = "safe" | "warn" | "critical";
 export type Zone = { name: string; level: Level; lat: number; lng: number; r: number; water: string; detail: string };
@@ -42,15 +44,6 @@ function blob(lat: number, lng: number, r: number, seed: number): LL[] {
   });
 }
 
-function inPoly(lat: number, lng: number, path: LL[]) {
-  let inside = false;
-  for (let i = 0, j = path.length - 1; i < path.length; j = i++) {
-    const a = path[i]!, b = path[j]!;
-    if (a.lat > lat !== b.lat > lat && lng < ((b.lng - a.lng) * (lat - a.lat)) / (b.lat - a.lat) + a.lng) inside = !inside;
-  }
-  return inside;
-}
-
 export function outlineOf(city: string): LL[][] {
   const rings = (OUTLINES as Record<string, number[][][]>)[city] ?? [];
   return rings.map((r) => r.map(([lat, lng]) => ({ lat: lat!, lng: lng! })));
@@ -74,19 +67,32 @@ export function infoAt(zones: Zone[], lat: number, lng: number, blobs: Blob[], o
   for (const z of zones) { const d = dist(z.lat, z.lng, lat, lng); if (d < nd) { nd = d; near = z; } }
   const name = near ? `Near ${near.name}` : "Selected location";
   let level: Level = "safe";
-  for (const b of blobs) if (RANK[b.level] > RANK[level] && inPoly(lat, lng, b.path)) level = b.level;
-  if (level === "safe" && !outline.some((r) => inPoly(lat, lng, r)))
+  for (const b of blobs) if (RANK[b.level] > RANK[level] && pointInPolygon({ lat, lng }, b.path)) level = b.level;
+  if (level === "safe" && !outline.some((r) => pointInPolygon({ lat, lng }, r)))
     return { name: "Outside city limits", level: "safe", water: "—", detail: "Not covered by this city's report.", lat, lng };
   return { name, level, ...DESC[level], lat, lng };
 }
 
-export default function FloodMap({ city, center, zones, onPick }: { city: string; center: { lat: number; lng: number }; zones: Zone[]; onPick: (p: PointInfo) => void }) {
+export default function FloodMap({ city, center, zones, selected, onPick, shelterMode, onShelterRoute }: {
+  city: string;
+  center: { lat: number; lng: number };
+  zones: Zone[];
+  selected: PointInfo;
+  onPick: (p: PointInfo) => void;
+  shelterMode: boolean;
+  onShelterRoute: (result: ShelterRouteResult | null) => void;
+}) {
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<any>(null);
   const shapes = useRef<any[]>([]);
   const marker = useRef<any>(null);
+  const shelterMarkers = useRef<any[]>([]);
+  const routeLine = useRef<any>(null);
+  const infoWindow = useRef<any>(null);
   const pickRef = useRef(onPick);
   pickRef.current = onPick;
+  const routeRef = useRef(onShelterRoute);
+  routeRef.current = onShelterRoute;
   const zonesRef = useRef(zones);
   zonesRef.current = zones;
   const blobsRef = useRef<Blob[]>([]);
@@ -103,6 +109,7 @@ export default function FloodMap({ city, center, zones, onPick }: { city: string
           center, zoom: 11, clickableIcons: false, disableDefaultUI: true, zoomControl: true, gestureHandling: "greedy",
           styles: DARK_MAP_STYLE,
         });
+        infoWindow.current = new g.maps.InfoWindow();
         const handle = (lat: number, lng: number) => {
           if (marker.current) marker.current.setMap(null);
           marker.current = new g.maps.Marker({ position: { lat, lng }, map: map.current });
@@ -149,6 +156,76 @@ export default function FloodMap({ city, center, zones, onPick }: { city: string
     }
     shapes.current = cells;
   }, [ready, city, center.lat, center.lng, zones]);
+
+  useEffect(() => {
+    if (!ready) return;
+    const g = window.google;
+    shelterMarkers.current.forEach((item) => item.setMap(null));
+    shelterMarkers.current = [];
+    routeLine.current?.setMap(null);
+    routeLine.current = null;
+    infoWindow.current?.close();
+    if (!shelterMode) {
+      routeRef.current(null);
+      return;
+    }
+
+    const candidates = sheltersForCity(city);
+    const deepWater = buildBlobs(zones).filter((area) => area.level === "critical").map((area) => area.path);
+    const result = findNearestSafeShelterRoute({ lat: selected.lat, lng: selected.lng }, candidates, deepWater);
+    routeRef.current(result);
+    const nearestName = result.status === "found" ? result.shelter.name : result.nearest?.name;
+
+    candidates.forEach((candidate) => {
+      const isNearest = candidate.name === nearestName;
+      const shelterMarker = new g.maps.Marker({
+        position: { lat: candidate.lat, lng: candidate.lng },
+        map: map.current,
+        title: `${candidate.name} — candidate facility, verify locally`,
+        label: { text: isNearest ? "★" : "R", color: "#ffffff", fontSize: "12px", fontWeight: "700" },
+        icon: {
+          path: g.maps.SymbolPath.CIRCLE,
+          scale: isNearest ? 10 : 8,
+          fillColor: isNearest ? "#0f766e" : "#2563eb",
+          fillOpacity: 1,
+          strokeColor: "#ffffff",
+          strokeWeight: 2,
+        },
+        zIndex: isNearest ? 100 : 50,
+      });
+      shelterMarker.addListener("click", () => {
+        const content = document.createElement("div");
+        const title = document.createElement("strong");
+        const detail = document.createElement("div");
+        title.textContent = candidate.name;
+        detail.textContent = `${candidate.kind} · candidate only; confirm availability locally`;
+        content.append(title, detail);
+        infoWindow.current?.setContent(content);
+        infoWindow.current?.open({ map: map.current, anchor: shelterMarker });
+      });
+      shelterMarkers.current.push(shelterMarker);
+    });
+
+    if (result.status === "found") {
+      routeLine.current = new g.maps.Polyline({
+        map: map.current,
+        path: result.path,
+        geodesic: true,
+        strokeColor: "#0f766e",
+        strokeOpacity: 0.95,
+        strokeWeight: 5,
+        zIndex: 90,
+      });
+    }
+
+    return () => {
+      shelterMarkers.current.forEach((item) => item.setMap(null));
+      shelterMarkers.current = [];
+      routeLine.current?.setMap(null);
+      routeLine.current = null;
+      infoWindow.current?.close();
+    };
+  }, [ready, city, zones, selected.lat, selected.lng, shelterMode]);
 
   return (
     <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-secondary">

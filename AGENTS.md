@@ -15,3 +15,5 @@
 - Historical statistics and hindcast rules are pure functions in `src/lib/history-stats.ts` with tests in `src/test/history-stats.test.ts`, so thresholds stay verifiable.
 - The Google Maps script loader and dark map style are shared from `src/lib/maps-loader.ts`, so every map loads the API once.
 - City boundary rings are stored in `src/components/city-outlines.json` (OpenStreetMap), keyed by the same city names used in the dashboard and weather server function.
+- The bundled Mumbai rainfall fallback stays source-linked and separate from history statistics, so offline values retain auditable provenance.
+- Relief-map facilities are unverified candidates, while local route geometry must avoid displayed Deep Water polygons without implying road navigation.

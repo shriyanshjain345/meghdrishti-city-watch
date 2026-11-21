@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useState, type ReactNode } from "re
 import { ClientOnly } from "@tanstack/react-router";
 import { motion, AnimatePresence, animate } from "framer-motion";
 import { getMumbaiRainHistory, type RainHistory } from "@/lib/history.functions";
+import { getMumbaiRainHistoryFallback, HISTORY_ARCHIVE_TIMEOUT_MS } from "@/lib/history-fallback";
 import {
   expand, byYear, yearStats, monsoonSeasons, seasonMean, monthlyClimatology, isCompleteYear,
   checkWindow, monsoonFlagCounts, IMD, type EventCheck,
@@ -64,7 +65,7 @@ const FLOW = [
 
 export default function HistorySection() {
   const [data, setData] = useState<RainHistory | null>(null);
-  const [err, setErr] = useState(false);
+  const [fallbackActive, setFallbackActive] = useState(false);
   const [year, setYear] = useState<number | null>(null);
   const [eventId, setEventId] = useState<string>(FLOOD_EVENTS.at(-1)!.id);
   const [decade, setDecade] = useState<Decade>("all");
@@ -73,10 +74,19 @@ export default function HistorySection() {
 
   useEffect(() => {
     let live = true;
-    getMumbaiRainHistory()
+    let timeoutId: number | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timeoutId = window.setTimeout(() => reject(new Error("Rainfall archive timed out")), HISTORY_ARCHIVE_TIMEOUT_MS);
+    });
+    Promise.race([getMumbaiRainHistory(), timeout])
       .then((d) => live && setData(d))
-      .catch(() => live && setErr(true));
-    return () => { live = false; };
+      .catch(() => {
+        if (!live) return;
+        setData(getMumbaiRainHistoryFallback());
+        setFallbackActive(true);
+      })
+      .finally(() => { if (timeoutId != null) window.clearTimeout(timeoutId); });
+    return () => { live = false; if (timeoutId != null) window.clearTimeout(timeoutId); };
   }, []);
 
   const model = useMemo(() => {
@@ -136,9 +146,10 @@ export default function HistorySection() {
             <p className="text-xs uppercase tracking-[0.2em] text-primary">Page 5 · Mumbai</p>
             <h2 className="text-xl font-bold md:text-2xl">Historical Rainfall & Flood Event Analysis</h2>
             <p className="text-xs text-muted-foreground">
-              {data ? <>Daily rainfall {fmtDate(data.start)} – {fmtDate(data.end)} · fetched {fmtStamp(data.fetchedAt)}</> : err ? "Rainfall history unavailable right now" : "Loading rainfall history…"}
+              {data ? <>Daily rainfall {fmtDate(data.start)} – {fmtDate(data.end)} · archive timestamp {fmtStamp(data.fetchedAt)}</> : "Loading rainfall history…"}
             </p>
           </div>
+          {fallbackActive && <span className="rounded-full border border-primary/35 bg-accent/70 px-3 py-1 text-xs font-semibold text-primary">Offline Archive Fallback</span>}
         </div>
         {model && (
           <label className="flex items-center gap-2 text-sm">
@@ -149,12 +160,6 @@ export default function HistorySection() {
           </label>
         )}
       </Reveal>
-
-      {err && (
-        <p className="rounded-xl border border-border bg-secondary/50 p-4 text-sm text-muted-foreground">
-          The rainfall archive couldn't be reached, so charts, totals and validation are left empty rather than estimated. The documented flood events below come from published sources and still work.
-        </p>
-      )}
 
       {model && ys && (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -183,7 +188,7 @@ export default function HistorySection() {
           </Reveal>
         </div>
       )}
-      {!model && !err && (
+      {!model && (
         <div className="grid h-64 place-items-center rounded-2xl border border-border/60">
           <div className="relative h-20 w-20 overflow-hidden rounded-full border border-primary/40"><div className="radar-sweep absolute inset-0 rounded-full" /></div>
         </div>

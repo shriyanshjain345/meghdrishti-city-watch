@@ -1,9 +1,10 @@
-import CameraCalculator from "@/components/CameraCalculator";
 import { createFileRoute, ClientOnly } from "@tanstack/react-router";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import { Search, MapPin } from "lucide-react";
+import { Search, MapPin, CloudFog, Cloud, Wind, Eye } from "lucide-react";
 import type { Level, Zone, PointInfo } from "@/components/FloodMap";
 import { getWeather, type Weather } from "@/lib/weather.functions";
+import type { ShelterRouteResult } from "@/lib/safe-route";
+import { Button } from "@/components/ui/button";
 import ActionGuide from "@/components/ActionGuide";
 import WeatherFx from "@/components/WeatherFx";
 import TrendChart from "@/components/TrendChart";
@@ -191,6 +192,8 @@ function Dashboard() {
   const [wxErr, setWxErr] = useState(false);
   const [slotIdx, setSlotIdx] = useState(0);
   const [infoOpen, setInfoOpen] = useState<string | null>(null);
+  const [sheltersOpen, setSheltersOpen] = useState(false);
+  const [shelterRoute, setShelterRoute] = useState<ShelterRouteResult | null>(null);
   const firstZone = (c: City): PointInfo => {
     const z = CITY_MAP[c]!.zones[0]!;
     return { name: z.name, level: z.level, water: z.water, detail: z.detail, lat: z.lat, lng: z.lng };
@@ -218,6 +221,8 @@ function Dashboard() {
     setCity(c);
     setSlotIdx(0);
     setSel(firstZone(c));
+    setSheltersOpen(false);
+    setShelterRoute(null);
   };
 
   const clock = now ? timeFmt.format(now) : "--:--";
@@ -323,6 +328,25 @@ function Dashboard() {
     },
   ];
 
+  const renderMetric = (m: (typeof metrics)[number]) => (
+    <div key={m.label} className="glass group relative min-h-[122px] min-w-0 rounded-xl p-4 transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg motion-reduce:transform-none">
+      <button
+        type="button"
+        aria-label={`How ${m.label} is predicted`}
+        aria-expanded={infoOpen === m.label}
+        onClick={() => setInfoOpen(infoOpen === m.label ? null : m.label)}
+        className="absolute right-3 top-3 z-10 grid h-6 w-6 place-items-center rounded-full border border-border bg-background text-[10px] font-bold italic text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+      >
+        i
+      </button>
+      <p className="min-h-8 break-words pr-8 text-[10px] font-semibold uppercase leading-4 tracking-wider text-muted-foreground">{m.label}</p>
+      <p className={`mt-2 flex flex-wrap items-baseline gap-x-1 font-display text-xl font-bold sm:text-2xl ${toneText[m.tone]}`}>
+        <span className="break-words">{m.value}</span><span className="text-xs font-normal text-muted-foreground">{m.unit}</span>
+      </p>
+      {infoOpen === m.label && <p className="mt-2 text-xs leading-relaxed text-muted-foreground animate-in fade-in slide-in-from-top-1">{m.info}</p>}
+    </div>
+  );
+
   const hoursMm = slots.reduce((a, b) => a + b.mm, 0);
   const mult = sel.level === "critical" ? 1.6 : sel.level === "warn" ? 1.2 : 1;
   const expMm = (hoursMm * mult).toFixed(1);
@@ -355,40 +379,41 @@ function Dashboard() {
           </div>
         </div>
       </header>
-      <section className="relative px-4 pb-6">
-        <div className="flex flex-wrap items-start justify-center gap-y-4 pt-3">
-          {metrics.map((m, i) => (
-            <div
-              key={m.label}
-              style={{ zIndex: infoOpen === m.label ? 50 : i }}
-              className={`relative w-36 shrink-0 rounded-2xl border border-border bg-card p-3 shadow-lg transition-all duration-300 ease-out hover:z-[60]! hover:-translate-y-2 hover:scale-110 hover:shadow-2xl sm:w-44 ${i > 0 ? "-ml-[4.5rem] sm:-ml-[5.5rem]" : ""}`}
-            >
-              <button
-                type="button"
-                aria-label={`How ${m.label} is predicted`}
-                onClick={() => setInfoOpen(infoOpen === m.label ? null : m.label)}
-                className="absolute right-2 top-2 z-10 grid h-5 w-5 place-items-center rounded-full border border-border bg-background text-[10px] font-bold italic text-muted-foreground transition-colors hover:border-primary hover:text-primary"
-              >
-                i
-              </button>
-              <p className="pr-6 text-[10px] uppercase tracking-wider text-muted-foreground">{m.label}</p>
-              <p className={`mt-2 font-display text-xl font-bold sm:text-2xl ${toneText[m.tone]}`}>
-                {m.value} <span className="text-xs font-normal text-muted-foreground">{m.unit}</span>
-              </p>
-              {infoOpen === m.label && (
-                <p className="mt-2 text-xs leading-relaxed text-muted-foreground animate-in fade-in slide-in-from-top-1">{m.info}</p>
-              )}
-            </div>
-          ))}
+      <section className="relative space-y-4 px-4 pb-6 pt-2">
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">{metrics.slice(0, 5).map(renderMetric)}</div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:mx-auto lg:w-4/5 lg:grid-cols-4">{metrics.slice(5).map(renderMetric)}</div>
         </div>
-        <div className="mt-6 flex justify-center"><CameraCalculator /></div>
+        <section aria-labelledby="air-quality-guide" className="glass-hi rounded-xl border border-border/70 p-4">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-start gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent text-primary"><Eye className="h-5 w-5" aria-hidden="true" /></span>
+              <div>
+                <h2 id="air-quality-guide" className="text-sm font-bold">Visual Air Quality &amp; Haze Indicators</h2>
+                <p className="mt-1 max-w-3xl text-sm leading-relaxed text-muted-foreground">Visual cues like haze, smoke, or dust can signal poor air quality, though they cannot provide an exact AQI number.</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2" aria-label="Visual air quality cues">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background/80 px-3 py-1.5 text-xs font-semibold"><CloudFog className="h-4 w-4 text-primary" aria-hidden="true" />Haze</span>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background/80 px-3 py-1.5 text-xs font-semibold"><Cloud className="h-4 w-4 text-muted-foreground" aria-hidden="true" />Smoke</span>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background/80 px-3 py-1.5 text-xs font-semibold"><Wind className="h-4 w-4 text-primary" aria-hidden="true" />Dust</span>
+            </div>
+          </div>
+        </section>
       </section>
       </div>
-      <main className="mx-auto max-w-7xl space-y-6 px-4 pb-12">
+      <main className="mx-auto max-w-7xl space-y-8 px-4 pb-12">
         <section className="grid gap-6 lg:grid-cols-5">
           <div className="glass rounded-xl p-5 lg:col-span-3">
-            <h2 className="mb-1 text-lg font-bold">City Flood Map — {city}</h2>
-            <p className="mb-2 text-sm text-muted-foreground">Click anywhere on the map for water status at that spot</p>
+            <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="mb-1 text-lg font-bold">City Flood Map — {city}</h2>
+                <p className="text-sm text-muted-foreground">Click anywhere on the map for water status at that spot</p>
+              </div>
+              <Button type="button" variant={sheltersOpen ? "secondary" : "outline"} size="sm" onClick={() => { setSheltersOpen((open) => !open); setShelterRoute(null); }}>
+                <MapPin aria-hidden="true" />{sheltersOpen ? "Hide Relief Points" : "Find Nearest Relief Shelter"}
+              </Button>
+            </div>
             <div className="mb-3 flex flex-wrap gap-4 text-xs">
               {(["safe", "warn", "critical"] as Level[]).map((l) => (
                 <span key={l} className="flex items-center gap-1.5">
@@ -399,9 +424,21 @@ function Dashboard() {
             </div>
             <ClientOnly fallback={<div className="aspect-[4/3] w-full rounded-lg bg-secondary" />}>
               <Suspense fallback={<div className="aspect-[4/3] w-full rounded-lg bg-secondary" />}>
-                <FloodMap city={city} center={CITY_MAP[city]!.center} zones={CITY_MAP[city]!.zones} onPick={setSel} />
+                <FloodMap city={city} center={CITY_MAP[city]!.center} zones={CITY_MAP[city]!.zones} selected={sel} onPick={setSel} shelterMode={sheltersOpen} onShelterRoute={setShelterRoute} />
               </Suspense>
             </ClientOnly>
+            {sheltersOpen && (
+              <div className="mt-3 rounded-lg border border-border bg-background/70 p-3 text-xs leading-relaxed" aria-live="polite">
+                <p className="text-muted-foreground">Markers show candidate public facilities, not confirmed relief shelters. Availability, elevation, and access are unverified; the drawn corridor avoids displayed Deep Water areas but is not road navigation.</p>
+                {shelterRoute?.status === "found" ? (
+                  <p className="mt-2 font-semibold text-foreground">Closest reachable candidate: {shelterRoute.shelter.name} · {shelterRoute.shelter.kind} · about {(shelterRoute.distanceMeters / 1000).toFixed(1)} km by illustrative corridor.</p>
+                ) : shelterRoute?.status === "blocked" ? (
+                  <p className="mt-2 font-semibold text-muted-foreground">{shelterRoute.nearest ? `Nearest candidate: ${shelterRoute.nearest.name} · ${shelterRoute.nearest.kind}. ` : ""}{shelterRoute.reason}</p>
+                ) : (
+                  <p className="mt-2 text-muted-foreground">Preparing candidate locations…</p>
+                )}
+              </div>
+            )}
             <div className={`mt-4 rounded-lg border p-4 ${levelCls[sel.level]}`}>
               <div className="flex justify-between">
                 <b className="text-foreground">{sel.name}</b>
