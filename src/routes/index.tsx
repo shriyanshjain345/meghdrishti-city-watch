@@ -5,6 +5,7 @@ import type { Level, Zone, PointInfo } from "@/components/FloodMap";
 import { getWeather, type Weather } from "@/lib/weather.functions";
 import type { ShelterRouteResult } from "@/lib/safe-route";
 import { Button } from "@/components/ui/button";
+import InstallAppButton from "@/components/InstallAppButton";
 import ActionGuide from "@/components/ActionGuide";
 import WeatherFx from "@/components/WeatherFx";
 import TrendChart from "@/components/TrendChart";
@@ -373,8 +374,9 @@ function Dashboard() {
           <div className="text-3xl font-bold font-display">{wx ? wx.temp : CITIES[city].temp}°C</div>
           <div className="text-sm">
             <div className="flex items-center gap-1">{wx && <img src={wx.icon} alt="" className="h-5 w-5" />}{wx ? wx.cond : "Loading…"}</div>
-            <div className="flex items-center gap-1.5 text-muted-foreground">
-              <span className="h-2 w-2 rounded-full bg-safe animate-pulse" />LIVE {clock} IST
+            <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-muted-foreground">
+              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-safe animate-pulse" />LIVE {clock} IST</span>
+              <InstallAppButton />
             </div>
           </div>
         </div>

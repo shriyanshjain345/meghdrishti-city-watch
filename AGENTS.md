@@ -17,3 +17,4 @@
 - City boundary rings are stored in `src/components/city-outlines.json` (OpenStreetMap), keyed by the same city names used in the dashboard and weather server function.
 - The bundled Mumbai rainfall fallback stays source-linked and separate from history statistics, so offline values retain auditable provenance.
 - Relief-map facilities are unverified candidates, while local route geometry must avoid displayed Deep Water polygons without implying road navigation.
+- PWA metadata belongs to the TanStack root route, with one guarded registration module so SSR and Lovable previews never register the generated worker.
